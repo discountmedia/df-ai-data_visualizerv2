@@ -7,17 +7,29 @@ import { SchemaReview } from "@/components/SchemaReview";
 import { Header, type Tab } from "@/components/Header";
 import { OverviewGrid } from "@/components/overview/OverviewGrid";
 import { SalesTeam } from "@/components/sales/SalesTeam";
+import { AllUnits } from "@/components/all/AllUnits";
+import { PriorityQueue } from "@/components/priority/PriorityQueue";
+import { InsightsTab } from "@/components/insights/InsightsTab";
 import { LoadingState, ErrorState, EmptyState } from "@/components/states/States";
 import { deriveSales } from "@/lib/deriveSales";
+import { deriveUnits } from "@/lib/deriveUnits";
+import { scoreUnits } from "@/lib/score";
 
 export default function Page() {
-  const { phase, parsed, entities, schema, error, reset, loadSample } = useDashboard();
+  const { phase, parsed, entities, schema, overrides, error, reset } = useDashboard();
   const [tab, setTab] = useState<Tab>("overview");
 
   const salesSummary = useMemo(() => {
     if (!entities || !schema) return null;
     return deriveSales(entities, schema);
   }, [entities, schema]);
+
+  const units = useMemo(() => {
+    if (!entities || !schema) return [];
+    return deriveUnits(entities, schema, overrides);
+  }, [entities, schema, overrides]);
+
+  const scoring = useMemo(() => scoreUnits(units), [units]);
 
   if (phase === "idle") return <FileUpload />;
   if (phase === "parsing") return <LoadingState label="Parsing spreadsheet…" />;
@@ -43,34 +55,21 @@ export default function Page() {
         activeTab={tab}
         onTab={setTab}
         salesCount={salesSummary ? salesSummary.totalSold : null}
+        priorityCount={scoring.scoredCount}
         onReset={reset}
       />
       <main className="mx-auto max-w-7xl px-5 py-6">
-        {tab === "overview" && <OverviewGrid />}
+        {tab === "overview" && <OverviewGrid units={units} />}
         {tab === "sales" &&
           (salesSummary ? (
             <SalesTeam summary={salesSummary} />
           ) : (
             <EmptyState title="No sales data" />
           ))}
-        {(tab === "priority" || tab === "all" || tab === "insights") && (
-          <ComingSoon tab={tab} onSample={loadSample} />
-        )}
+        {tab === "all" && <AllUnits units={units} />}
+        {tab === "priority" && <PriorityQueue scoring={scoring} />}
+        {tab === "insights" && <InsightsTab scoring={scoring} units={units} sales={salesSummary} />}
       </main>
-    </div>
-  );
-}
-
-function ComingSoon({ tab, onSample }: { tab: Tab; onSample: () => void }) {
-  const copy: Record<string, string> = {
-    priority: "AI-scored priority queue — which units to work first — lands in the next slice.",
-    all: "The sortable / filterable all-units table with status pills is next on the roadmap.",
-    insights: "The AI Insights tab (with a visible 'how scores were calculated' panel) comes after scoring.",
-  };
-  return (
-    <div className="py-20 text-center">
-      <p className="eyebrow text-brand">Coming soon</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-ink-dim">{copy[tab]}</p>
     </div>
   );
 }

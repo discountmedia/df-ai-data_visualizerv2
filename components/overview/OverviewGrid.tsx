@@ -6,33 +6,28 @@ import { deriveMetrics } from "@/lib/deriveMetrics";
 import { MetricCard } from "./MetricCard";
 import { AlertBanner } from "../AlertBanner";
 import { LocationBar } from "../LocationBar";
+import { OverviewCharts } from "../charts/OverviewCharts";
 import { EmptyState } from "../states/States";
 import { cn, fmt } from "@/lib/format";
-import type { LocationSnapshot, Row } from "@/lib/types";
+import type { LocationSnapshot, UnitRecord } from "@/lib/types";
 
-export function OverviewGrid() {
-  const { parsed, entities, schema, overrides, locationFilter } = useDashboard();
+export function OverviewGrid({ units }: { units: UnitRecord[] }) {
+  const { locationFilter } = useDashboard();
 
-  // Use only base (unit) rows — never the email/staff/round-robin rows.
-  const baseRows: Row[] = entities?.rowsByEntity["base"] ?? parsed?.rows ?? [];
+  // Metric cards, charts, and the location filter all derive from the SAME
+  // UnitRecords — the cards beside a chart can never disagree with it.
+  const allMetrics = useMemo(() => deriveMetrics(units), [units]);
 
-  const allMetrics = useMemo(() => {
-    if (!schema) return null;
-    return deriveMetrics(baseRows, schema, overrides);
-  }, [baseRows, schema, overrides]);
+  const filteredUnits = useMemo(
+    () =>
+      locationFilter === "ALL"
+        ? units
+        : units.filter((u) => (u.location ?? "Unassigned") === locationFilter),
+    [units, locationFilter]
+  );
+  const filtered = useMemo(() => deriveMetrics(filteredUnits), [filteredUnits]);
 
-  const filtered = useMemo(() => {
-    if (!schema) return null;
-    const locCol = schema.conceptMap.location;
-    const rows =
-      locationFilter === "ALL" || !locCol
-        ? baseRows
-        : baseRows.filter((r) => String(r[locCol] ?? "") === locationFilter);
-    return deriveMetrics(rows, schema, overrides);
-  }, [baseRows, schema, overrides, locationFilter]);
-
-  if (!schema || !allMetrics || !filtered) return null;
-  if (baseRows.length === 0) return <EmptyState title="No unit rows to display" />;
+  if (units.length === 0) return <EmptyState title="No unit rows to display" />;
 
   return (
     <div className="space-y-5 fade-up">
@@ -54,6 +49,8 @@ export function OverviewGrid() {
         <MetricCard label="Govt PO's" metric={filtered.govtPo} accent="govt" subtext="Contract" />
         <MetricCard label="Open Work on Sold" metric={filtered.openWorkOnSold} accent="diag" subtext="Fix now" />
       </div>
+
+      <OverviewCharts units={filteredUnits} />
 
       <LocationsSnapshot locations={allMetrics.locations} />
     </div>

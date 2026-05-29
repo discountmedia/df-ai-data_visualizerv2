@@ -18,6 +18,7 @@ export function Header({
   activeTab,
   onTab,
   salesCount,
+  priorityCount,
   onReset,
 }: {
   fileName: string;
@@ -26,14 +27,15 @@ export function Header({
   activeTab: Tab;
   onTab: (t: Tab) => void;
   salesCount: number | null;
+  priorityCount: number | null;
   onReset: () => void;
 }) {
   const tabs: TabDef[] = [
     { id: "overview", label: "Overview", live: true, count: unitCount },
     { id: "sales", label: "Sales Team", live: true, count: salesCount },
-    { id: "priority", label: "Priority", live: false },
-    { id: "all", label: "All Units", live: false },
-    { id: "insights", label: "AI Insights", live: false },
+    { id: "priority", label: "Priority", live: true, count: priorityCount },
+    { id: "all", label: "All Units", live: true, count: unitCount },
+    { id: "insights", label: "AI Insights", live: true },
   ];
 
   return (

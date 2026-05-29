@@ -172,3 +172,112 @@ export interface SalesSummary {
   /** Plain-language notes on what was/wasn't found (shown in the UI). */
   notes: string[];
 }
+
+/* ----------------------------------------------------------------------------
+ * Per-unit record (one inventory row, schema-resolved). Columns are resolved
+ * from the conceptMap + structural patterns — never hardcoded export names.
+ * Feeds the All-Units table and the priority scorer.
+ * ------------------------------------------------------------------------- */
+
+export interface UnitRecord {
+  /** Stable key for React + dedupe: serial, else name, else row index. */
+  id: string;
+  rowIndex: number;
+  name: string | null;
+  serial: string | null;
+  make: string | null;
+  model: string | null;
+  type: string | null;
+  location: string | null;
+  capacity: number | null;
+  work: WorkBucket;
+  workRaw: string | null;
+  sale: SaleBucket;
+  saleRaw: string | null;
+  /** True only when a sale/commitment exists (sale ∈ committed buckets). */
+  committed: boolean;
+  signed: boolean;
+  soldBy: string | null;
+  price: number | null;
+  customer: string | null;
+}
+
+/* ----------------------------------------------------------------------------
+ * Priority scoring. Deterministic and fully explainable — every point a unit
+ * earns is itemised in `factors` so the Insights tab can show exactly how a
+ * score was calculated. AI (when available) layers narrative on top; it never
+ * computes the score.
+ * ------------------------------------------------------------------------- */
+
+export type PriorityTier = "act_now" | "high" | "medium" | "low";
+
+export interface ScoreFactor {
+  /** Stable rule key (matches a ScoreWeights field). */
+  key: string;
+  label: string;
+  /** Points this rule contributed to the unit's score. */
+  points: number;
+  /** One-line, operator-auditable explanation. */
+  detail: string;
+}
+
+export interface ScoredUnit {
+  unit: UnitRecord;
+  /** 0–100, capped. 0 means "nothing to act on" (excluded from the queue). */
+  score: number;
+  tier: PriorityTier;
+  factors: ScoreFactor[];
+  /** What the yard should actually do next. */
+  action: string;
+}
+
+export interface ScoreWeights {
+  committedUnfinished: number;
+  paidInFullBonus: number;
+  govtPoBonus: number;
+  committedUnknownWork: number;
+  needsDiagnosis: number;
+  beingWorked: number;
+}
+
+export interface ScoreRule {
+  key: keyof ScoreWeights;
+  label: string;
+  points: number;
+  /** Plain-language description of when this rule fires. */
+  when: string;
+}
+
+export interface ScoringResult {
+  /** Ranked desc by score; only units with score > 0 are included. */
+  ranked: ScoredUnit[];
+  weights: ScoreWeights;
+  rules: ScoreRule[];
+  tierCounts: Record<PriorityTier, number>;
+  /** How many of the supplied units earned a non-zero score. */
+  scoredCount: number;
+  totalUnits: number;
+  /** Plain-language methodology lines shown in the Insights panel. */
+  methodology: string[];
+}
+
+/* ----------------------------------------------------------------------------
+ * AI Insights — portfolio-level narrative. Always optional: the Insights tab's
+ * "how scores were calculated" panel is deterministic; this layers a read on
+ * top, with a heuristic fallback when no API key is set.
+ * ------------------------------------------------------------------------- */
+
+export type InsightSeverity = "act" | "watch" | "info";
+
+export interface Insight {
+  title: string;
+  body: string;
+  severity: InsightSeverity;
+}
+
+export interface InsightsResult {
+  summary: string;
+  insights: Insight[];
+  source: "claude" | "heuristic";
+  note?: string;
+}

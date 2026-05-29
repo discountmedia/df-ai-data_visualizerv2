@@ -6,20 +6,13 @@ import type {
   SalesSummary,
   SalesRep,
   SoldUnit,
-  SaleBucket,
   RoundRobinQueue,
   LeadSource,
 } from "./types";
 import { findColumn } from "./entities";
+import { resolveSale, isSigned, toNum } from "./bucketize";
 
 /* --- small helpers --- */
-
-function toNum(v: CellValue): number | null {
-  if (v === null) return null;
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
-  return Number.isFinite(n) ? n : null;
-}
 
 /** Names arrive padded with a trailing employee id: "Ross Kohlmeier   1108". */
 function cleanName(v: CellValue): { name: string; repId: string | null } | null {
@@ -29,17 +22,6 @@ function cleanName(v: CellValue): { name: string; repId: string | null } | null 
   const m = s.match(/^(.*?)\s+(\d{2,})\s*$/);
   if (m) return { name: m[1].trim(), repId: m[2] };
   return { name: s, repId: null };
-}
-
-function saleBucketOf(raw: string, schema: SchemaProfile): SaleBucket {
-  const fromMap = schema.saleTypeValueMap[raw.toLowerCase()];
-  if (fromMap) return fromMap;
-  const s = raw.toLowerCase();
-  if (/paid in full|^pif|paid/.test(s)) return "paid_in_full";
-  if (/down|deposit/.test(s)) return "down_payment";
-  if (/govt|government|\bpo\b/.test(s)) return "govt_po";
-  if (/rent/.test(s)) return "rental";
-  return "other";
 }
 
 /* --- main --- */
@@ -160,14 +142,14 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
       const rawSale = cell(saleTypeCol, r);
       if (rawSale == null) continue; // only committed units are relevant here
       const nm = cleanName(r[soldByCol]);
-      const signed = signedCol ? r[signedCol] != null : false;
+      const signed = signedCol ? isSigned(r[signedCol]) : false;
       const price = priceCol ? toNum(r[priceCol]) : null;
       const unit: SoldUnit = {
         rep: nm?.name ?? "(unattributed)",
         make: cell(makeCol, r),
         model: cell(modelCol, r),
         type: cell(typeCol, r),
-        saleType: saleBucketOf(rawSale, schema),
+        saleType: resolveSale(rawSale, schema),
         saleTypeRaw: rawSale,
         price,
         customer: cell(customerCol, r),

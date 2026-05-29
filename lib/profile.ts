@@ -2,6 +2,7 @@ import type {
   Row, CellValue, ColumnProfile, ColumnType, ColumnRole, TrustLevel,
   SchemaProfile, WorkBucket, SaleBucket,
 } from "./types";
+import { bucketWorkByPattern, bucketSaleByPattern } from "./bucketize";
 
 const NULL_HEAVY = 70;
 
@@ -91,12 +92,12 @@ export function heuristicSchema(rows: Row[]): SchemaProfile {
   const workStageValueMap: Record<string, WorkBucket> = {};
   if (workStage) {
     const col = columns.find((c) => c.name === workStage)!;
-    for (const v of col.sampleValues) workStageValueMap[String(v).toLowerCase()] = bucketWork(String(v));
+    for (const v of col.sampleValues) workStageValueMap[String(v).toLowerCase()] = bucketWorkByPattern(String(v));
   }
   const saleTypeValueMap: Record<string, SaleBucket> = {};
   if (saleType) {
     const col = columns.find((c) => c.name === saleType)!;
-    for (const v of col.sampleValues) saleTypeValueMap[String(v).toLowerCase()] = bucketSale(String(v));
+    for (const v of col.sampleValues) saleTypeValueMap[String(v).toLowerCase()] = bucketSaleByPattern(String(v));
   }
   return {
     columns,
@@ -110,20 +111,3 @@ export function heuristicSchema(rows: Row[]): SchemaProfile {
   };
 }
 
-function bucketWork(v: string): WorkBucket {
-  const s = v.toLowerCase();
-  if (/ready|complete|done|prepped|diagnosed|serviced/.test(s)) return "ready";
-  if (/diag.*need|need.*diag|broken|inop/.test(s)) return "needs_diagnosis";
-  if (/rent/.test(s)) return "on_rent";
-  if (/sold/.test(s)) return "sold";
-  if (/work|recon|prep|repair|service|body|progress/.test(s)) return "working";
-  return "unknown";
-}
-function bucketSale(v: string): SaleBucket {
-  const s = v.toLowerCase();
-  if (/paid in full|^pif|paid/.test(s)) return "paid_in_full";
-  if (/down|deposit|dp\b/.test(s)) return "down_payment";
-  if (/govt|government|\bpo\b|purchase order/.test(s)) return "govt_po";
-  if (/rent/.test(s)) return "rental";
-  return "other";
-}

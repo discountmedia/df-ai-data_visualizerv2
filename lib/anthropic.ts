@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ColumnProfile, Row, SchemaProfile } from "./types";
+import type { ColumnProfile, Row, SchemaProfile, Insight } from "./types";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
@@ -90,6 +90,57 @@ export async function inferSchema(columns: ColumnProfile[], sampleRows: Row[]): 
     warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
     source: "claude",
   };
+}
+
+const INSIGHTS_SYSTEM = `You are an operations analyst for a forklift dealership. You receive a COMPACT,
+already-computed snapshot of one inventory export: fleet counts, work-stage mix,
+sale-type mix, the top priority units (already scored by a deterministic engine),
+per-location stage counts, and sales rollups. Some fields may be missing.
+
+Your job: turn the numbers into a short operational read for a yard manager —
+what to act on, where the risk is, what's healthy. The priority SCORES are given;
+do NOT re-score or invent rankings. Be concrete and grounded ONLY in the supplied
+numbers (cite real counts/locations). No filler, no generic advice.
+
+The dashboard's primary priority driver is committed-but-unfinished units (a
+customer has paid/committed but the unit isn't deliverable) — lead with those if
+present.
+
+Return STRICT JSON ONLY (no prose, no markdown fences):
+{
+  "summary": string,                      // 1–2 sentences: the headline read
+  "insights": [                           // 3–6 items, ordered most-urgent first
+    { "title": string,                    // short, specific (e.g. "5 paid units stuck at diagnosis")
+      "body": string,                     // 1–2 sentences, actionable, cites numbers
+      "severity": "act" | "watch" | "info" }
+  ]
+}`;
+
+export async function generateInsights(input: unknown): Promise<{ summary: string; insights: Insight[] }> {
+  const client = getClient();
+  const msg = await client.messages.create({
+    model: MODEL,
+    max_tokens: 1500,
+    system: INSIGHTS_SYSTEM,
+    messages: [{ role: "user", content: JSON.stringify(input) }],
+  });
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  const parsed = parseJson(text);
+  const summary = typeof parsed.summary === "string" ? parsed.summary : "";
+  const insights: Insight[] = Array.isArray(parsed.insights)
+    ? parsed.insights
+        .filter((i: unknown): i is Record<string, unknown> => !!i && typeof i === "object")
+        .map((i: Record<string, unknown>): Insight => ({
+          title: String(i.title ?? "").trim(),
+          body: String(i.body ?? "").trim(),
+          severity: i.severity === "act" ? "act" : i.severity === "watch" ? "watch" : "info",
+        }))
+        .filter((i) => i.title || i.body)
+    : [];
+  return { summary, insights };
 }
 
 function parseJson(text: string): Record<string, any> {

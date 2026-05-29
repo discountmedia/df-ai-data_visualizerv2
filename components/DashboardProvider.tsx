@@ -65,7 +65,9 @@ function reducer(state: State, action: Action): State {
         overrides: { vetoedColumns: [] },
       };
     case "READY":
-      return { ...state, phase: "ready", overrides: action.overrides };
+      // Reset the location filter: the kept columns may have changed in review,
+      // so a stale selection could otherwise filter on a now-vetoed column.
+      return { ...state, phase: "ready", overrides: action.overrides, locationFilter: "ALL" };
     case "ERROR":
       return { ...state, phase: "error", error: action.error };
     case "SET_LOCATION":
