@@ -72,15 +72,29 @@ The key is read only in the API route and is never exposed to the browser.
 
 - [x] Upload + parse + AI schema inference + veto + Overview
 - [x] Multi-table ingestion + **Sales Team** tab
-- [ ] Sortable / filterable All-Units table with status pills
-- [ ] Charts (work-stage mix, by location, sales by payment type)
-- [ ] AI scoring (batched) → Priority / Act-Now queue
-- [ ] AI Insights tab with a visible "how scores were calculated" panel
+- [x] Sortable / filterable **All Units** table with status pills
+- [x] **Charts** (work-stage mix, by location, sales by payment type) on Overview
+- [x] **Priority / Act-Now** queue — deterministic scoring with per-unit breakdown
+- [x] **AI Insights** tab with a visible "how scores were calculated" panel
+
+### How priority scoring works
+
+Scoring is **deterministic and fully explainable** — no unit is ranked by AI.
+The single question it answers is *which units should the yard work next?* The
+dominant driver is **committed-but-unfinished** units (a customer has paid or
+committed but the unit isn't deliverable, so revenue is stuck); work-stage
+urgency orders the rest. Every point a unit earns is itemised on its row, and
+the exact rules/weights are shown in the Insights tab's *How Scores Were
+Calculated* panel. The **AI Insights** layer adds a portfolio-level narrative on
+top in one batched call (with a rule-based fallback when no API key is set); it
+never computes the score.
 
 ## Notes & limitations
 
-- Scoring is not wired yet — no unit is ranked or evaluated; the app only infers
-  structure and aggregates what's present.
+- Priority scoring is deterministic — the same export always produces the same
+  ranking. The AI layer adds narrative only; it does not rank units.
+- Aged-inventory signals (e.g. how long a Ready unit has sat) are not yet a
+  scoring factor — they need a reliable date column, which most exports lack.
 - Rep ↔ roster ↔ email matching is best-effort (names are padded with employee
   IDs and joined via the staff roster); odd names may not map to a location.
 - All processing is in-memory per session; nothing is persisted server-side.
