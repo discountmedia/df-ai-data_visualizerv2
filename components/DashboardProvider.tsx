@@ -165,7 +165,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       });
 
       // 1. Show good data immediately on the instant, client-side heuristic schema.
+      //    INFERRING sets parsed + entities into state; READY_WITH_SCHEMA (batched
+      //    in the same tick) flips to ready WITHOUT clobbering them.
       const heuristic = heuristicSchema(parsed.rows);
+      dispatch({ type: "INFERRING", parsed, entities });
       dispatch({ type: "READY_WITH_SCHEMA", schema: heuristic, usedFallback: true, overrides: overridesFor(heuristic), refining: true });
 
       // 2. Refine with AI in the background, then swap it in seamlessly (the user
