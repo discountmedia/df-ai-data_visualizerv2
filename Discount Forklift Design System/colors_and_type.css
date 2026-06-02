@@ -1,0 +1,156 @@
+/* ============================================================================
+   Discount Forklift — Inventory Intelligence Dashboard
+   Design tokens: color + type
+   Source of truth: discountmedia/df-ai-data_visualizerv2 (app/globals.css,
+   tailwind.config.ts, lib/buckets.ts, components/viz/chartTheme.tsx)
+
+   Load the fonts before this file, e.g.:
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet">
+   ============================================================================ */
+
+:root,
+[data-theme="dark"] {
+  /* --- Surfaces (dark is the product default) --- */
+  --ground: #0a0a0b;   /* page background */
+  --panel:  #121214;   /* card background */
+  --panel-2:#17171a;   /* nested / hover panel, tooltips */
+  --line:   #2a2a2e;   /* hairline borders, grid texture */
+
+  /* --- Foreground text --- */
+  --ink:       #f2f2f3; /* primary text */
+  --ink-dim:   #9a9aa0; /* secondary text, labels */
+  --ink-faint: #5e5e66; /* tertiary text, disabled, hints */
+}
+
+[data-theme="light"] {
+  --ground: #f4f4f2;
+  --panel:  #ffffff;
+  --panel-2:#f7f7f5;
+  --line:   #d9d9d4;
+  --ink:       #15151a;
+  --ink-dim:   #55555c;
+  --ink-faint: #8a8a92;
+}
+
+:root {
+  /* --- Brand --- */
+  --brand: #ff2b2b;        /* Discount Forklift red — wordmark, primary action, top-rule, active states */
+
+  /* --- Semantic status (work stage) --- */
+  --ready:   #3ddc84;      /* ready to sell — green */
+  --working: #ffc02e;      /* being worked on — amber */
+  --diag:    #ff3b46;      /* needs diagnosis / sold / error — red */
+  --rent:    #3aa0ff;      /* on rent — blue */
+
+  /* --- Semantic status (sale / payment type) --- */
+  --pif:     #ff8a3d;      /* paid in full — orange */
+  --downpmt: #ffb86b;      /* down payment — light orange */
+  --govt:    #b07cff;      /* govt PO — violet */
+
+  /* --- Money / ledger accents (Daily Activity / Ledger surface) --- */
+  --cash:    #f2f2f3;      /* cash on hand — white */
+  --collect: #ffc02e;      /* funds to collect — amber */
+  --neg:     #ff3b46;      /* negative / outflow — red */
+  --savings: #3aa0ff;      /* reserve — blue */
+
+  /* --- Typography ---
+     Three coordinated roles in the current product:
+     · mono    — all chrome: eyebrows, labels, column headers, nav, buttons, copy.
+     · display — big stat numerals ONLY (heavy condensed black face).
+     · sans    — proportional table DATA values (company names, types, reps).
+                 The product renders these in the OS default sans (Segoe UI on
+                 the source Windows build); system-ui keeps that faithful. */
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Anton", "Saira Condensed", "Oswald", var(--font-mono);  /* SUBSTITUTION — see README */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Weight scale */
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold:600;
+  --weight-bold:    700;
+
+  /* --- Radii --- */
+  --radius-card: 6px;      /* the single shared corner radius */
+
+  /* --- Elevation --- */
+  --shadow-card: 0 1px 0 0 rgba(255,255,255,0.02) inset, 0 8px 24px -16px rgba(0,0,0,0.8);
+
+  /* --- Motion --- */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 120ms;       /* hover / color transitions */
+  --dur-base: 280ms;       /* fade-up entrance */
+}
+
+/* ============================================================================
+   BASE TYPE — everything is monospace. The product has no separate display or
+   serif face; hierarchy comes from size + weight + the uppercase "eyebrow".
+   ============================================================================ */
+
+html, body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Semantic type roles (mirrors the product's Tailwind usage) --- */
+
+/* Page / view title — FileUpload h1 */
+.df-h1 {
+  font-size: 24px;            /* text-2xl */
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;    /* tracking-tight */
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+/* Big metric number — MetricCard. HEAVY CONDENSED BLACK display face. */
+.df-metric {
+  font-family: var(--font-display);
+  font-size: 44px;            /* large — the visual anchor of every card */
+  font-weight: 400;           /* Anton is already black; weight is baked in */
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.df-metric-sm { font-size: 34px; }  /* secondary stat rows */
+.df-metric-lg { font-size: 26px; }  /* row score */
+
+/* Body */
+.df-body {
+  font-size: 14px;            /* text-sm */
+  line-height: 1.6;
+  color: var(--ink);
+}
+.df-body-dim { font-size: 14px; color: var(--ink-dim); }
+
+/* Table DATA values — proportional sans (names, companies, types, reps). */
+.df-data { font-family: var(--font-sans); font-size: 14px; color: var(--ink); }
+.df-data-dim { font-family: var(--font-sans); font-size: 14px; color: var(--ink-dim); }
+
+/* Small / meta */
+.df-xs   { font-size: 12px; color: var(--ink); }            /* text-xs */
+.df-11   { font-size: 11px; color: var(--ink-dim); }        /* text-[11px] */
+.df-10   { font-size: 10px; color: var(--ink-faint); }      /* text-[10px] */
+
+/* Eyebrow — the signature label style, everywhere */
+.df-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* Wordmark */
+.df-wordmark {
+  font-size: 14px;
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--brand);
+  text-transform: uppercase;
+}
+
+/* Tabular numerals helper — used on every number in the product */
+.df-nums { font-variant-numeric: tabular-nums; }

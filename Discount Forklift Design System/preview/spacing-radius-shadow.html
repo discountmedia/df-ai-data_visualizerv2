@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radius · Shadow · Texture</title>
+<link rel="stylesheet" href="_card.css">
+</head>
+<body>
+
+<div class="row" style="align-items:stretch">
+  <div class="col" style="flex:1;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px">
+    <div style="width:90px;height:48px;border:1px solid var(--line);border-radius:6px;background:#17171a"></div>
+    <div class="eyebrow" style="margin-top:10px">Radius 6px</div>
+  </div>
+  <div class="col" style="flex:1;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px">
+    <div style="width:90px;height:48px;border:1px solid var(--line);border-radius:6px;background:#17171a;box-shadow:var(--shadow-card)"></div>
+    <div class="eyebrow" style="margin-top:10px">Shadow card</div>
+  </div>
+  <div class="col" style="flex:1;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;padding:14px;background-image:linear-gradient(#2a2a2e 1px,transparent 1px),linear-gradient(90deg,#2a2a2e 1px,transparent 1px);background-size:24px 24px">
+    <div class="eyebrow" style="background:#0a0a0b;padding:4px 6px">Grid texture</div>
+  </div>
+</div>
+<p class="eyebrow nums" style="margin-top:12px">--radius-card 6px · grid 48px @ 0.06 · gaps 12px</p>
+
+</body>
+</html>

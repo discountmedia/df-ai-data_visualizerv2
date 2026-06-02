@@ -1,0 +1,43 @@
+/* Shared styles for Design System preview cards.
+   Mirrors discountmedia/df-ai-data_visualizerv2 tokens. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Anton&display=swap');
+
+:root{
+  --ground:#0a0a0b; --panel:#121214; --panel-2:#17171a; --line:#2a2a2e;
+  --ink:#f2f2f3; --ink-dim:#9a9aa0; --ink-faint:#5e5e66;
+  --brand:#ff2b2b; --ready:#3ddc84; --working:#ffc02e; --diag:#ff3b46;
+  --rent:#3aa0ff; --pif:#ff8a3d; --downpmt:#ffb86b; --govt:#b07cff;
+  --radius-card:6px;
+  --font-display:"Anton","Saira Condensed","Oswald",ui-monospace,monospace;
+  --font-sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --shadow-card:0 1px 0 0 rgba(255,255,255,0.02) inset, 0 8px 24px -16px rgba(0,0,0,0.8);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  -webkit-font-smoothing:antialiased;
+  padding:18px;
+}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-card);}
+.eyebrow{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-dim);}
+.nums{font-variant-numeric:tabular-nums;}
+.row{display:flex;gap:10px;}
+.col{display:flex;flex-direction:column;gap:10px;}
+.wrap{display:flex;flex-wrap:wrap;gap:10px;}
+
+/* swatch */
+.sw{display:flex;flex-direction:column;gap:6px;}
+.sw .chip{height:56px;border-radius:6px;border:1px solid var(--line);}
+.sw .lab{font-size:11px;color:var(--ink);}
+.sw .hex{font-size:10px;color:var(--ink-faint);}
+
+/* pill */
+.pill{display:inline-block;white-space:nowrap;border:1px solid;padding:2px 6px;font-size:10px;text-transform:uppercase;letter-spacing:0.03em;}
+
+/* button */
+.btn{font-family:inherit;border:1px solid var(--line);background:transparent;color:var(--ink-dim);
+  padding:5px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;cursor:pointer;}
+.btn-primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700;}
