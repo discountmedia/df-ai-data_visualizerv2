@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useDashboard } from "./DashboardProvider";
+import { CategoryExplorer } from "./explore/CategoryExplorer";
 import { cn } from "@/lib/format";
 import type { ColumnProfile, TrustLevel } from "@/lib/types";
 
@@ -40,6 +41,7 @@ export function SchemaReview() {
     return s;
   };
   const [vetoed, setVetoed] = useState<Set<string>>(makeSuggested);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // column name -> entity label (only for prefixed columns like `email::…`).
   const colEntity = useMemo(() => {
@@ -76,18 +78,38 @@ export function SchemaReview() {
       ["Work stage", concept.workStage], ["Sale type", concept.saleType], ["Payment status", concept.paymentStatus]]
       .filter(([, v]) => v) as [string, string][]), [concept]);
 
+  // Source rows + selectable columns for the currently-open category's explorer.
+  // Entity categories (Email / Staff / …) read that entity's own rows; base role
+  // categories read inventory rows and expose ALL base columns so connections
+  // can cross fields (e.g. salesman × make), not just the clicked role's columns.
+  const activeData = useMemo(() => {
+    if (!activeCategory) return null;
+    const cat = categories.find((c) => c.label === activeCategory);
+    if (!cat) return null;
+    const ent = entities?.related.find((e) => e.label === cat.label);
+    if (ent) {
+      return {
+        label: cat.label,
+        sourceKey: ent.key,
+        rows: entities!.rowsByEntity[ent.key] ?? [],
+        columns: (schema?.columns ?? []).filter((c) => ent.columns.includes(c.name)),
+        defaultDimension: cat.columns[0]?.name,
+      };
+    }
+    const baseCols = new Set(entities?.base.columns ?? parsed?.columns ?? []);
+    return {
+      label: cat.label,
+      sourceKey: "base",
+      rows: entities?.rowsByEntity["base"] ?? parsed?.rows ?? [],
+      columns: (schema?.columns ?? []).filter((c) => baseCols.has(c.name)),
+      defaultDimension: cat.columns[0]?.name,
+    };
+  }, [activeCategory, categories, entities, schema, parsed]);
+
   if (!schema || !parsed) return null;
 
   const toggle = (name: string) => setVetoed((prev) => {
     const next = new Set(prev); next.has(name) ? next.delete(name) : next.add(name); return next;
-  });
-
-  // Batch toggle a whole category: if all currently included → exclude all, else include all.
-  const toggleCategory = (cat: Category) => setVetoed((prev) => {
-    const next = new Set(prev);
-    const allIn = cat.columns.every((c) => !next.has(c.name));
-    cat.columns.forEach((c) => (allIn ? next.add(c.name) : next.delete(c.name)));
-    return next;
   });
 
   const selectAll = () => setVetoed(new Set());
@@ -152,45 +174,52 @@ export function SchemaReview() {
         </div>
       )}
 
-      {/* Batch-select cards — click a category to toggle every column in it. */}
-      <p className="mt-6 eyebrow">Categories — click a card to select / deselect the whole group</p>
+      {/* Explore cards — click a category to open its charts / connection builder. */}
+      <p className="mt-6 eyebrow">Categories — click a card to explore its data &amp; find connections</p>
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {categories.map((cat) => {
           const total = cat.columns.length;
           const sel = cat.columns.filter((c) => !vetoed.has(c.name)).length;
           const all = sel === total, none = sel === 0;
+          const open = activeCategory === cat.label;
           return (
             <button
               key={cat.label}
               type="button"
-              onClick={() => toggleCategory(cat)}
-              aria-pressed={all}
+              onClick={() => setActiveCategory(open ? null : cat.label)}
+              aria-expanded={open}
               className={cn(
                 "card card-hover p-3 text-left transition-colors",
-                all ? "border-ready/50 bg-ready/5" : none ? "border-line" : "border-working/50 bg-working/5",
+                open ? "border-brand bg-brand/10" : "border-line",
               )}
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="eyebrow truncate text-ink">{cat.label}</p>
-                <span className={cn(
-                  "flex h-4 w-4 shrink-0 items-center justify-center border text-[10px] leading-none",
-                  all ? "border-ready bg-ready/20 text-ready"
-                    : none ? "border-line text-transparent" : "border-working text-working",
-                )}>
-                  {all ? "✓" : none ? "" : "–"}
+                <span className={cn("text-[11px] leading-none", open ? "text-brand" : "text-ink-faint")}>
+                  {open ? "▾" : "▸"}
                 </span>
               </div>
               <p className={cn("mt-1 text-sm tabular-nums",
                 all ? "text-ready" : none ? "text-ink-dim" : "text-working")}>
-                {sel}/{total}
+                {sel}/{total} <span className="text-[10px] text-ink-faint">included</span>
               </p>
-              <p className="text-[10px] text-ink-faint">
-                {all ? "all selected" : none ? "none selected" : "partial"}
-              </p>
+              <p className="text-[10px] text-ink-faint">{open ? "exploring ↓" : "click to explore"}</p>
             </button>
           );
         })}
       </div>
+
+      {activeData && (
+        <CategoryExplorer
+          key={activeData.label}
+          label={activeData.label}
+          sourceKey={activeData.sourceKey}
+          rows={activeData.rows}
+          columns={activeData.columns}
+          defaultDimension={activeData.defaultDimension}
+          onClose={() => setActiveCategory(null)}
+        />
+      )}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
         <p className="eyebrow">Data sources — check the columns to include</p>

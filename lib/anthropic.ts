@@ -143,6 +143,47 @@ export async function generateInsights(input: unknown): Promise<{ summary: strin
   return { summary, insights };
 }
 
+const CONNECT_SYSTEM = `You translate a plain-English question about a forklift dealer's spreadsheet into ONE pivot/cross-tab specification that the app computes deterministically. You do NOT compute anything — you only choose which columns to group by and what to measure.
+
+You receive: the user's question, the data "source" (which stacked table the rows come from), and the list of available columns with their inferred role, type, and a few sample values.
+
+Return STRICT JSON ONLY (no prose, no markdown fences):
+{
+  "spec": {
+    "dimension": string,                 // EXACT column name — its values become the chart's rows/bars
+    "breakdown": string | null,          // EXACT column name for a second split (grouped bars), or null
+    "measure": { "kind": "count" | "sum" | "avg", "column": string | null },
+    "topN": number,                      // how many dimension values to keep (default 12)
+    "title": string                      // short, specific chart title
+  },
+  "narrative": string                    // 1–2 plain sentences on what this view will reveal and why it answers the question
+}
+
+Rules:
+- "dimension", "breakdown", and measure "column" MUST be exact names from the provided columns (or null where allowed). Never invent columns.
+- Use measure.kind "count" unless the question implies summing or averaging a NUMBER column (e.g. "total sales $" → sum of a price column; "average hours" → avg). For count, set "column": null.
+- Pick the dimension that the question is really asking to break results down by (e.g. "which salesman" → the sold-by/rep column). Use "breakdown" for a second factor ("...of which make" → make column).
+- Prefer columns with role identifier/sale_type/work_stage/location/metric over near-empty "other" columns when several fit.
+- Keep "narrative" grounded in the chosen columns; do not claim specific numbers (you haven't seen the data).`;
+
+export async function planConnection(input: unknown): Promise<{ spec: Record<string, any>; narrative: string }> {
+  const client = getClient();
+  const msg = await client.messages.create({
+    model: MODEL,
+    max_tokens: 700,
+    system: CONNECT_SYSTEM,
+    messages: [{ role: "user", content: JSON.stringify(input) }],
+  });
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  const parsed = parseJson(text);
+  const spec = parsed.spec && typeof parsed.spec === "object" ? parsed.spec : {};
+  const narrative = typeof parsed.narrative === "string" ? parsed.narrative : "";
+  return { spec, narrative };
+}
+
 function parseJson(text: string): Record<string, any> {
   const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
   try { return JSON.parse(cleaned); }
