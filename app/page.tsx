@@ -5,6 +5,7 @@ import { useDashboard } from "@/components/DashboardProvider";
 import { FileUpload } from "@/components/FileUpload";
 import { SchemaReview } from "@/components/SchemaReview";
 import { Header } from "@/components/Header";
+import { LocationBar } from "@/components/LocationBar";
 import { OverviewGrid } from "@/components/overview/OverviewGrid";
 import { InsightsTab } from "@/components/insights/InsightsTab";
 import { CategoryTab } from "@/components/tabs/CategoryTab";
@@ -17,18 +18,25 @@ import { buildCategories } from "@/lib/categories";
 import { orderCategories } from "@/lib/categoryConfig";
 
 export default function Page() {
-  const { phase, parsed, entities, schema, overrides, error, reset, activeTab, setTab } = useDashboard();
+  const { phase, parsed, entities, schema, overrides, error, reset, activeTab, setTab, locationFilter } = useDashboard();
 
   const salesSummary = useMemo(
     () => (entities && schema ? deriveSales(entities, schema) : null),
     [entities, schema]
   );
-  const units = useMemo(
+  const allUnits = useMemo(
     () => (entities && schema ? deriveUnits(entities, schema, overrides) : []),
     [entities, schema, overrides]
   );
+  // Global location filter — drives the Overview AND every category tab.
+  const units = useMemo(
+    () => (locationFilter === "ALL" ? allUnits : allUnits.filter((u) => (u.location ?? "Unassigned") === locationFilter)),
+    [allUnits, locationFilter]
+  );
   const scoring = useMemo(() => scoreUnits(units), [units]);
   const metrics = useMemo(() => deriveMetrics(units), [units]);
+  // Full (unfiltered) location list so the filter bar + yard snapshot always show every yard.
+  const allLocations = useMemo(() => deriveMetrics(allUnits).locations, [allUnits]);
   const categories = useMemo(() => orderCategories(buildCategories(schema, entities)), [schema, entities]);
 
   if (phase === "idle") return <FileUpload />;
@@ -52,6 +60,11 @@ export default function Page() {
   ];
   const activeCat = current.startsWith("cat:") ? categories.find((c) => `cat:${c.id}` === current) : null;
 
+  const onAnalyze = () => {
+    setTab("overview");
+    setTimeout(() => document.getElementById("ai-insights")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  };
+
   return (
     <div className="min-h-screen">
       <Header
@@ -62,7 +75,15 @@ export default function Page() {
         activeTab={current}
         onTab={setTab}
         onReset={reset}
+        onAnalyze={onAnalyze}
       />
+      {allLocations.length > 0 && (
+        <div className="border-b border-line bg-ground/60">
+          <div className="mx-auto max-w-7xl px-5">
+            <LocationBar locations={allLocations} />
+          </div>
+        </div>
+      )}
       <main className="mx-auto max-w-7xl px-5 py-6">
         {activeCat ? (
           <CategoryTab
@@ -77,8 +98,10 @@ export default function Page() {
           />
         ) : (
           <div className="space-y-8 fade-up">
-            {units.length ? <OverviewGrid units={units} /> : <EmptyState title="No unit rows to display" />}
-            <InsightsTab scoring={scoring} units={units} sales={salesSummary} />
+            {units.length ? <OverviewGrid units={units} allLocations={allLocations} /> : <EmptyState title="No unit rows for this filter" />}
+            <div id="ai-insights">
+              <InsightsTab scoring={scoring} units={units} sales={salesSummary} />
+            </div>
           </div>
         )}
       </main>

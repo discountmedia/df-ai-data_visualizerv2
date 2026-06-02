@@ -1,67 +1,56 @@
 "use client";
 
 import { useMemo } from "react";
-import { useDashboard } from "../DashboardProvider";
 import { deriveMetrics } from "@/lib/deriveMetrics";
 import { MetricCard } from "./MetricCard";
 import { AlertBanner } from "../AlertBanner";
-import { LocationBar } from "../LocationBar";
 import { OverviewCharts } from "../charts/OverviewCharts";
 import { EmptyState } from "../states/States";
-import { cn, fmt } from "@/lib/format";
+import { DistributionBar } from "../viz/DistributionBar";
+import { fmt } from "@/lib/format";
 import type { LocationSnapshot, UnitRecord } from "@/lib/types";
 
-export function OverviewGrid({ units }: { units: UnitRecord[] }) {
-  const { locationFilter } = useDashboard();
-
-  // Metric cards, charts, and the location filter all derive from the SAME
-  // UnitRecords — the cards beside a chart can never disagree with it.
-  const allMetrics = useMemo(() => deriveMetrics(units), [units]);
-
-  const filteredUnits = useMemo(
-    () =>
-      locationFilter === "ALL"
-        ? units
-        : units.filter((u) => (u.location ?? "Unassigned") === locationFilter),
-    [units, locationFilter]
-  );
-  const filtered = useMemo(() => deriveMetrics(filteredUnits), [filteredUnits]);
-
-  if (units.length === 0) return <EmptyState title="No unit rows to display" />;
+/**
+ * The at-a-glance command center. Receives units already filtered by the global
+ * location bar; `allLocations` (full, unfiltered) feeds the yard snapshot so it
+ * always shows every yard.
+ */
+export function OverviewGrid({ units, allLocations }: { units: UnitRecord[]; allLocations: LocationSnapshot[] }) {
+  const m = useMemo(() => deriveMetrics(units), [units]);
+  if (units.length === 0) return <EmptyState title="No unit rows for this filter" />;
 
   return (
     <div className="space-y-5 fade-up">
-      <LocationBar locations={allMetrics.locations} />
-      <AlertBanner openWorkOnSold={filtered.openWorkOnSold} />
+      <AlertBanner openWorkOnSold={m.openWorkOnSold} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <MetricCard label="Total Fleet" metric={filtered.totalFleet} accent="ink" />
-        <MetricCard label="Ready to Sell" metric={filtered.ready} accent="ready" subtext="Fully prepped" />
-        <MetricCard label="Being Worked On" metric={filtered.working} accent="working" subtext="Service / body" />
-        <MetricCard label="Needs Diagnosis" metric={filtered.needsDiagnosis} accent="diag" subtext="Act first" />
-        <MetricCard label="On Rent" metric={filtered.onRent} accent="rent" subtext="Generating income" />
-        <MetricCard label="Sold" metric={filtered.sold} accent="diag" subtext="Closed deals" />
+        <MetricCard label="Total Fleet" metric={m.totalFleet} accent="ink" />
+        <MetricCard label="Ready to Sell" metric={m.ready} accent="ready" subtext="Fully prepped" />
+        <MetricCard label="Being Worked On" metric={m.working} accent="working" subtext="Service / body" />
+        <MetricCard label="Needs Diagnosis" metric={m.needsDiagnosis} accent="diag" subtext="Act first" />
+        <MetricCard label="On Rent" metric={m.onRent} accent="rent" subtext="Generating income" />
+        <MetricCard label="Sold" metric={m.sold} accent="diag" subtext="Closed deals" />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MetricCard label="Paid in Full" metric={filtered.paidInFull} accent="pif" subtext="Top tier" />
-        <MetricCard label="Down Payment" metric={filtered.downPayment} accent="downpmt" subtext="Deposit recv'd" />
-        <MetricCard label="Govt PO's" metric={filtered.govtPo} accent="govt" subtext="Contract" />
-        <MetricCard label="Open Work on Sold" metric={filtered.openWorkOnSold} accent="diag" subtext="Fix now" />
+        <MetricCard label="Paid in Full" metric={m.paidInFull} accent="pif" subtext="Top tier" />
+        <MetricCard label="Down Payment" metric={m.downPayment} accent="downpmt" subtext="Deposit recv'd" />
+        <MetricCard label="Govt PO's" metric={m.govtPo} accent="govt" subtext="Contract" />
+        <MetricCard label="Open Work on Sold" metric={m.openWorkOnSold} accent="diag" subtext="Fix now" />
       </div>
 
-      <OverviewCharts units={filteredUnits} />
+      <OverviewCharts units={units} />
 
-      <LocationsSnapshot locations={allMetrics.locations} />
+      <LocationsSnapshot locations={allLocations} />
     </div>
   );
 }
 
-const BAR_SEGMENTS: { key: keyof LocationSnapshot; cls: string }[] = [
-  { key: "ready", cls: "bg-ready" },
-  { key: "working", cls: "bg-working" },
-  { key: "needs_diagnosis", cls: "bg-diag" },
-  { key: "on_rent", cls: "bg-rent" },
+const SEG: { key: keyof LocationSnapshot; cls: string; label: string }[] = [
+  { key: "ready", cls: "bg-ready", label: "Ready" },
+  { key: "working", cls: "bg-working", label: "Working" },
+  { key: "needs_diagnosis", cls: "bg-diag", label: "Need Diag" },
+  { key: "on_rent", cls: "bg-rent", label: "On Rent" },
 ];
 
 function LocationsSnapshot({ locations }: { locations: LocationSnapshot[] }) {
@@ -70,41 +59,19 @@ function LocationsSnapshot({ locations }: { locations: LocationSnapshot[] }) {
     <section>
       <p className="eyebrow mb-3">Locations — Snapshot</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {locations.slice(0, 12).map((l) => {
-          const known = l.ready + l.working + l.needs_diagnosis + l.on_rent || 1;
-          return (
-            <div key={l.name} className="card p-3">
-              <div className="flex items-baseline justify-between">
-                <span className="truncate text-sm font-bold text-ink">{l.name}</span>
-                <span className="text-[11px] text-ink-faint">{fmt(l.total)} units</span>
-              </div>
-              <div className="mt-2 flex h-1.5 overflow-hidden rounded-sm">
-                {BAR_SEGMENTS.map((s) => {
-                  const val = l[s.key] as number;
-                  if (!val) return null;
-                  return <div key={s.key} className={s.cls} style={{ width: `${(val / known) * 100}%` }} />;
-                })}
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-y-1.5 text-[11px]">
-                <Stat label="Ready" value={l.ready} cls="text-ready" />
-                <Stat label="Working" value={l.working} cls="text-working" />
-                <Stat label="Need Diag" value={l.needs_diagnosis} cls="text-diag" />
-                <Stat label="On Rent" value={l.on_rent} cls="text-rent" />
-                <Stat label="Sold" value={l.sold} cls="text-ink-dim" />
-              </div>
+        {locations.slice(0, 12).map((l) => (
+          <div key={l.name} className="card p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="truncate text-sm font-bold text-ink">{l.name}</span>
+              <span className="text-[11px] text-ink-faint">{fmt(l.total)} units</span>
             </div>
-          );
-        })}
+            <div className="mt-2">
+              <DistributionBar segments={SEG.map((s) => ({ label: s.label, value: l[s.key] as number, cls: s.cls }))} legend />
+            </div>
+            {l.sold > 0 && <p className="mt-1 text-[10px] text-ink-faint">Sold: {fmt(l.sold)}</p>}
+          </div>
+        ))}
       </div>
     </section>
-  );
-}
-
-function Stat({ label, value, cls }: { label: string; value: number; cls: string }) {
-  return (
-    <div>
-      <p className="text-ink-faint">{label}</p>
-      <p className={cn("font-bold tabular-nums", cls)}>{fmt(value)}</p>
-    </div>
   );
 }

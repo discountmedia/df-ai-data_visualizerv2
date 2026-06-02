@@ -94,10 +94,17 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
       .slice(0, 8);
   }, [units]);
 
+  const brandData = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const u of units) if (u.make) m.set(u.make, (m.get(u.make) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count }));
+  }, [units]);
+
   const hasWork = workData.length > 0;
   const hasSale = saleData.length > 0;
   const hasLoc = locData.length > 0;
-  if (!hasWork && !hasSale && !hasLoc) return null;
+  const hasBrand = brandData.length > 0;
+  if (!hasWork && !hasSale && !hasLoc && !hasBrand) return null;
 
   return (
     <section className="space-y-3">
@@ -139,6 +146,19 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
           </Panel>
         )}
 
+        {hasBrand && (
+          <Panel title="Inventory by Brand" hint="top makes · unit count">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={brandData} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 8 }}>
+                <CartesianGrid horizontal={false} stroke={GRID} />
+                <XAxis type="number" stroke={AXIS} fontSize={11} allowDecimals={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" stroke={AXIS} fontSize={11} width={92} tickLine={false} axisLine={false} />
+                <Tooltip content={<ChartTip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                <Bar dataKey="count" name="Units" radius={[0, 2, 2, 0]} fill="#3aa0ff" isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Panel>
+        )}
       </div>
 
       {hasLoc && (
