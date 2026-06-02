@@ -275,9 +275,20 @@ export interface Insight {
   severity: InsightSeverity;
 }
 
+export interface SecondOpinion {
+  summary: string;
+  insights: Insight[];
+  model: string;
+  source: "grok";
+}
+
 export interface InsightsResult {
   summary: string;
   insights: Insight[];
   source: "claude" | "heuristic";
   note?: string;
+  /** Independent second-opinion read (Grok), when available. */
+  second?: SecondOpinion | null;
+  /** Why the second opinion is missing (e.g. wrong model string) — for debugging. */
+  secondError?: string;
 }

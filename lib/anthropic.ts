@@ -92,7 +92,7 @@ export async function inferSchema(columns: ColumnProfile[], sampleRows: Row[]): 
   };
 }
 
-const INSIGHTS_SYSTEM = `You are an operations analyst for a forklift dealership. You receive a COMPACT,
+export const INSIGHTS_SYSTEM = `You are an operations analyst for a forklift dealership. You receive a COMPACT,
 already-computed snapshot of one inventory export: fleet counts, work-stage mix,
 sale-type mix, the top priority units (already scored by a deterministic engine),
 per-location stage counts, and sales rollups. Some fields may be missing.
@@ -214,7 +214,7 @@ export async function summarizeCategory(input: unknown): Promise<{ narrative: st
   return { narrative, suggestedQuestions };
 }
 
-function parseJson(text: string): Record<string, any> {
+export function parseJson(text: string): Record<string, any> {
   const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
   try { return JSON.parse(cleaned); }
   catch {

@@ -67,15 +67,27 @@ export function InsightsTab({ scoring, units, sales }:
           <p className="mt-3 text-sm text-ink-faint">Reading the fleet…</p>
         ) : result ? (
           <>
-            {result.summary && <p className="mt-3 text-sm leading-relaxed text-ink">{result.summary}</p>}
-            {result.note && <p className="mt-2 text-[11px] text-ink-faint">{result.note}</p>}
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              {result.insights.map((ins, i) => (
-                <InsightCard key={i} insight={ins} />
-              ))}
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <ReadColumn label="Claude" sub="primary read" accent="ready"
+                summary={result.summary} insights={result.insights} note={result.note} />
+              {result.second ? (
+                <ReadColumn label="Grok" sub={`second opinion · ${result.second.model}`} accent="rent"
+                  summary={result.second.summary} insights={result.second.insights} />
+              ) : (
+                <div className="border border-line/60 bg-panel-2/50 p-4 text-[11px] text-ink-faint">
+                  <p className="eyebrow text-ink-dim">Grok · second opinion</p>
+                  <p className="mt-2 leading-relaxed">
+                    {result.secondError
+                      ? `Unavailable — ${result.secondError}`
+                      : "Set XAI_API_KEY / XAI_MODEL in Vercel to enable the Grok second opinion."}
+                  </p>
+                </div>
+              )}
             </div>
-            {result.insights.length === 0 && (
-              <p className="mt-3 text-[11px] text-ink-faint">No specific insights surfaced for this snapshot.</p>
+            {result.second && (
+              <p className="mt-3 text-[11px] text-ink-faint">
+                Two independent reads — where they diverge, look closer. That&apos;s the signal.
+              </p>
             )}
           </>
         ) : null}
@@ -150,6 +162,31 @@ function TierBar({ scoring }: { scoring: ScoringResult }) {
         if (!v) return null;
         return <div key={t} className={TIER_FILL[t]} style={{ width: `${(v / total) * 100}%` }} title={`${TIER_LABEL[t]}: ${v}`} />;
       })}
+    </div>
+  );
+}
+
+function ReadColumn({
+  label, sub, accent, summary, insights, note,
+}: {
+  label: string; sub: string; accent: "ready" | "rent";
+  summary: string; insights: Insight[]; note?: string;
+}) {
+  return (
+    <div className="border border-line bg-panel-2/40 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="eyebrow text-ink">{label}</p>
+        <span className={cn("border px-1.5 py-0.5 text-[9px] uppercase tracking-wider",
+          accent === "rent" ? "border-rent/40 text-rent" : "border-ready/40 text-ready")}>
+          {sub}
+        </span>
+      </div>
+      {summary && <p className="mt-2 text-sm leading-relaxed text-ink">{summary}</p>}
+      {note && <p className="mt-1 text-[10px] text-ink-faint">{note}</p>}
+      <div className="mt-3 space-y-2">
+        {insights.map((ins, i) => <InsightCard key={i} insight={ins} />)}
+        {insights.length === 0 && <p className="text-[11px] text-ink-faint">No specific insights.</p>}
+      </div>
     </div>
   );
 }
