@@ -7,7 +7,6 @@ import { TabHeader } from "./TabHeader";
 import { StatCards } from "../viz/StatCards";
 import { ChartPanel } from "../viz/ChartPanel";
 import { CategoryBars } from "../viz/CategoryBars";
-import { DonutChart } from "../viz/DonutChart";
 import { TabAI } from "./TabAI";
 import { WORK_LABEL, WORK_HEX } from "@/lib/buckets";
 
@@ -56,8 +55,8 @@ export function OtherTab({ category, units, entities, schema, parsed }: TabConte
         <ChartPanel title="Fleet by Make" hint="top 10 · unit count" height={280}>
           <CategoryBars data={makeData} series={["value"]} layout="vertical" />
         </ChartPanel>
-        <ChartPanel title="Inventory by Type" hint="share of fleet" height={280}>
-          <DonutChart data={typeData} />
+        <ChartPanel title="Inventory by Type" hint="top types · unit count" height={280}>
+          <CategoryBars data={typeData} series={["value"]} layout="vertical" />
         </ChartPanel>
       </div>
 

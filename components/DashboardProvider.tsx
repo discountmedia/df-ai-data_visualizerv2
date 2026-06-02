@@ -38,6 +38,7 @@ type Action =
   | { type: "INFERRING"; parsed: ParsedFile; entities: EntitySet }
   | { type: "REVIEW"; schema: SchemaProfile; usedFallback: boolean; note?: string }
   | { type: "READY"; overrides: SchemaOverrides }
+  | { type: "READY_WITH_SCHEMA"; schema: SchemaProfile; usedFallback: boolean; note?: string; overrides: SchemaOverrides }
   | { type: "ERROR"; error: string }
   | { type: "SET_LOCATION"; location: string }
   | { type: "SET_TAB"; tab: string }
@@ -71,6 +72,12 @@ function reducer(state: State, action: Action): State {
       // Reset the location filter: the kept columns may have changed in review,
       // so a stale selection could otherwise filter on a now-vetoed column.
       return { ...state, phase: "ready", overrides: action.overrides, locationFilter: "ALL", activeTab: "" };
+    case "READY_WITH_SCHEMA":
+      // Auto-load path: infer + confirm in one step, no schema-review screen.
+      return {
+        ...state, phase: "ready", schema: action.schema, usedFallback: action.usedFallback,
+        inferenceNote: action.note, overrides: action.overrides, locationFilter: "ALL", activeTab: "",
+      };
     case "ERROR":
       return { ...state, phase: "error", error: action.error };
     case "SET_LOCATION":
@@ -89,6 +96,7 @@ function reducer(state: State, action: Action): State {
 interface Ctx extends State {
   loadFile: (file: File) => Promise<void>;
   loadSample: () => Promise<void>;
+  loadAutoData: () => Promise<void>;
   confirmSchema: (overrides: SchemaOverrides) => void;
   backToReview: () => void;
   setLocation: (loc: string) => void;
@@ -125,6 +133,33 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     [runInference]
   );
 
+  // Auto-load the bundled test export, infer its schema, and land directly on the
+  // dashboard — no upload splash, no schema-review step. This is how it runs live
+  // (the backend will feed the same shape of data).
+  const loadAutoData = useCallback(async () => {
+    dispatch({ type: "PARSING" });
+    try {
+      const res = await fetch("/inventory.xlsx");
+      if (!res.ok) throw new Error(`Could not load bundled data (${res.status}).`);
+      const blob = await res.blob();
+      const file = new File([blob], "TEST2EXCEL.xlsx", {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const parsed = await parseSpreadsheet(file);
+      const entities = detectEntities(parsed);
+      dispatch({ type: "INFERRING", parsed, entities });
+      const { schema, usedFallback, note } = await inferSchemaClient(parsed);
+      const overrides = {
+        vetoedColumns: schema.columns
+          .filter((c) => c.trust === "deprecated" || c.trust === "duplicate")
+          .map((c) => c.name),
+      };
+      dispatch({ type: "READY_WITH_SCHEMA", schema, usedFallback, note, overrides });
+    } catch (err) {
+      dispatch({ type: "ERROR", error: err instanceof Error ? err.message : "Could not auto-load data." });
+    }
+  }, []);
+
   const loadSample = useCallback(async () => {
     dispatch({ type: "PARSING" });
     try {
@@ -146,6 +181,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     ...state,
     loadFile,
     loadSample,
+    loadAutoData,
     confirmSchema: (overrides) => dispatch({ type: "READY", overrides }),
     backToReview: () => dispatch({ type: "BACK_TO_REVIEW" }),
     setLocation: (loc) => dispatch({ type: "SET_LOCATION", location: loc }),

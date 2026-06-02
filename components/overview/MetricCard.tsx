@@ -17,7 +17,7 @@ export function MetricCard({ label, metric, accent = "ink", subtext }:
       <div className="flex items-center justify-between">
         <p className="eyebrow">{label}</p><span className="text-ink-faint">→</span>
       </div>
-      <p className={cn("mt-2 text-4xl font-bold leading-none tracking-tight tabular-nums",
+      <p className={cn("mt-2 font-display text-5xl leading-none tabular-nums",
         available ? ACCENT[accent] : "text-ink-faint")}>
         {available ? fmt(value) : "—"}
       </p>

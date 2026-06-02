@@ -48,8 +48,9 @@ export function Header({
       <div className="top-rule" />
       <div className="mx-auto max-w-7xl px-5">
         <div className="flex items-center justify-between gap-3 py-3">
-          <div className="flex min-w-0 items-baseline gap-3">
-            <span className="shrink-0 text-sm font-bold tracking-tight text-brand">DISCOUNT FORKLIFT</span>
+          <div className="flex min-w-0 items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Discount Forklift" className="h-5 w-auto shrink-0" />
             <span className="hidden shrink-0 text-[11px] uppercase tracking-wider text-ink-dim sm:inline">Inventory Dashboard</span>
             <span className="hidden truncate text-[11px] text-ink-faint md:inline">— {fileName}</span>
           </div>

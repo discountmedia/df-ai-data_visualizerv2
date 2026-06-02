@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useDashboard } from "@/components/DashboardProvider";
-import { FileUpload } from "@/components/FileUpload";
 import { SchemaReview } from "@/components/SchemaReview";
 import { Header } from "@/components/Header";
 import { LocationBar } from "@/components/LocationBar";
@@ -18,7 +17,12 @@ import { buildCategories } from "@/lib/categories";
 import { orderCategories } from "@/lib/categoryConfig";
 
 export default function Page() {
-  const { phase, parsed, entities, schema, overrides, error, reset, activeTab, setTab, locationFilter } = useDashboard();
+  const { phase, parsed, entities, schema, overrides, error, reset, activeTab, setTab, locationFilter, loadAutoData } = useDashboard();
+
+  // No upload splash — land straight in the bundled test data (live, the backend feeds this).
+  useEffect(() => {
+    if (phase === "idle") loadAutoData();
+  }, [phase, loadAutoData]);
 
   const salesSummary = useMemo(
     () => (entities && schema ? deriveSales(entities, schema) : null),
@@ -39,8 +43,8 @@ export default function Page() {
   const allLocations = useMemo(() => deriveMetrics(allUnits).locations, [allUnits]);
   const categories = useMemo(() => orderCategories(buildCategories(schema, entities)), [schema, entities]);
 
-  if (phase === "idle") return <FileUpload />;
-  if (phase === "parsing") return <LoadingState label="Parsing spreadsheet…" />;
+  if (phase === "idle") return <LoadingState label="Loading inventory…" />;
+  if (phase === "parsing") return <LoadingState label="Parsing inventory export…" />;
   if (phase === "inferring") return <LoadingState label="Inferring schema with AI…" />;
   if (phase === "error")
     return (

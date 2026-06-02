@@ -125,7 +125,7 @@ function Card({ label, value, accent, sub }: { label: string; value: string; acc
   return (
     <div className="card card-hover p-4">
       <p className="eyebrow">{label}</p>
-      <p className={cn("mt-2 text-3xl font-bold leading-none tracking-tight tabular-nums", accent)}>{value}</p>
+      <p className={cn("mt-2 font-display text-4xl leading-none tabular-nums", accent)}>{value}</p>
       <p className="mt-2 text-[11px] text-ink-faint">{sub}</p>
     </div>
   );

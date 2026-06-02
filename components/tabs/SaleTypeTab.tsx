@@ -7,7 +7,6 @@ import { TabHeader } from "./TabHeader";
 import { StatCards } from "../viz/StatCards";
 import { ChartPanel } from "../viz/ChartPanel";
 import { CategoryBars } from "../viz/CategoryBars";
-import { DonutChart } from "../viz/DonutChart";
 import { Leaderboard, type ColDef } from "../viz/Leaderboard";
 import { TabAI } from "./TabAI";
 import { unitTitle } from "./shared";
@@ -67,7 +66,8 @@ export function SaleTypeTab({ category, units, sales, entities, schema, parsed }
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <ChartPanel title="Commitment Mix" hint="committed units by sale type" height={270}>
-          <DonutChart data={mix} />
+          <CategoryBars data={mix.map((m) => ({ name: m.name, value: m.value }))} series={["value"]}
+            layout="vertical" colors={Object.fromEntries(mix.map((m) => [m.name, m.fill]))} />
         </ChartPanel>
         {openBySale.data.length > 0 && (
           <ChartPanel title="Progress on Committed Units" hint="work stage × sale type" height={270}>

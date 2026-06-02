@@ -36,7 +36,7 @@ export function StatCards({ items, cols = 3 }: { items: StatItem[]; cols?: numbe
             <div className="flex items-center justify-between">
               <p className="eyebrow">{it.label}</p><span className="text-ink-faint">→</span>
             </div>
-            <p className={cn("mt-2 text-3xl font-bold leading-none tracking-tight tabular-nums",
+            <p className={cn("mt-2 font-display text-4xl leading-none tabular-nums",
               available ? ACCENT[it.accent ?? "ink"] : "text-ink-faint")}>
               {available ? display : "—"}
             </p>

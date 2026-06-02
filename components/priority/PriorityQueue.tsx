@@ -120,7 +120,7 @@ function PriorityRow({ rank, scored, open, onToggle }:
           <SalePill sale={u.sale} />
         </div>
         <div className="w-14 shrink-0 text-right">
-          <span className="text-2xl font-bold leading-none tabular-nums text-ink">{scored.score}</span>
+          <span className="font-display text-3xl leading-none tabular-nums text-ink">{scored.score}</span>
           <span className="block text-[9px] uppercase tracking-wide text-ink-faint">score</span>
         </div>
       </div>
@@ -186,7 +186,7 @@ function SummaryCard({ label, value, accent, sub }: { label: string; value: stri
   return (
     <div className="card card-hover p-4">
       <p className="eyebrow">{label}</p>
-      <p className={cn("mt-2 text-3xl font-bold leading-none tracking-tight tabular-nums", accent)}>{value}</p>
+      <p className={cn("mt-2 font-display text-4xl leading-none tabular-nums", accent)}>{value}</p>
       <p className="mt-2 text-[11px] text-ink-faint">{sub}</p>
     </div>
   );
