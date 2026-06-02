@@ -15,6 +15,7 @@ import type {
 } from "@/lib/types";
 import { parseSpreadsheet } from "@/lib/parseFile";
 import { inferSchemaClient } from "@/lib/inferSchemaClient";
+import { heuristicSchema } from "@/lib/profile";
 import { detectEntities } from "@/lib/entities";
 import { makeSampleData } from "@/lib/sampleData";
 
@@ -31,6 +32,8 @@ interface State {
   error?: string;
   locationFilter: string;
   activeTab: string;
+  /** True while the AI schema is being refined in the background (data already shown). */
+  schemaRefining: boolean;
 }
 
 type Action =
@@ -38,7 +41,8 @@ type Action =
   | { type: "INFERRING"; parsed: ParsedFile; entities: EntitySet }
   | { type: "REVIEW"; schema: SchemaProfile; usedFallback: boolean; note?: string }
   | { type: "READY"; overrides: SchemaOverrides }
-  | { type: "READY_WITH_SCHEMA"; schema: SchemaProfile; usedFallback: boolean; note?: string; overrides: SchemaOverrides }
+  | { type: "READY_WITH_SCHEMA"; schema: SchemaProfile; usedFallback: boolean; note?: string; overrides: SchemaOverrides; refining?: boolean }
+  | { type: "UPGRADE_SCHEMA"; schema: SchemaProfile; usedFallback: boolean; note?: string; overrides: SchemaOverrides }
   | { type: "ERROR"; error: string }
   | { type: "SET_LOCATION"; location: string }
   | { type: "SET_TAB"; tab: string }
@@ -51,6 +55,7 @@ const initialState: State = {
   usedFallback: false,
   locationFilter: "ALL",
   activeTab: "",
+  schemaRefining: false,
 };
 
 function reducer(state: State, action: Action): State {
@@ -77,6 +82,14 @@ function reducer(state: State, action: Action): State {
       return {
         ...state, phase: "ready", schema: action.schema, usedFallback: action.usedFallback,
         inferenceNote: action.note, overrides: action.overrides, locationFilter: "ALL", activeTab: "",
+        schemaRefining: action.refining ?? false,
+      };
+    case "UPGRADE_SCHEMA":
+      // Background AI refinement landed — swap the schema in WITHOUT disturbing the
+      // user's current tab / location filter. Everything re-derives from the new schema.
+      return {
+        ...state, schema: action.schema, usedFallback: action.usedFallback,
+        inferenceNote: action.note, overrides: action.overrides, schemaRefining: false,
       };
     case "ERROR":
       return { ...state, phase: "error", error: action.error };
@@ -147,14 +160,22 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       });
       const parsed = await parseSpreadsheet(file);
       const entities = detectEntities(parsed);
-      dispatch({ type: "INFERRING", parsed, entities });
-      const { schema, usedFallback, note } = await inferSchemaClient(parsed);
-      const overrides = {
-        vetoedColumns: schema.columns
-          .filter((c) => c.trust === "deprecated" || c.trust === "duplicate")
-          .map((c) => c.name),
-      };
-      dispatch({ type: "READY_WITH_SCHEMA", schema, usedFallback, note, overrides });
+      const overridesFor = (s: SchemaProfile) => ({
+        vetoedColumns: s.columns.filter((c) => c.trust === "deprecated" || c.trust === "duplicate").map((c) => c.name),
+      });
+
+      // 1. Show good data immediately on the instant, client-side heuristic schema.
+      const heuristic = heuristicSchema(parsed.rows);
+      dispatch({ type: "READY_WITH_SCHEMA", schema: heuristic, usedFallback: true, overrides: overridesFor(heuristic), refining: true });
+
+      // 2. Refine with AI in the background, then swap it in seamlessly (the user
+      //    keeps looking at real numbers the whole time; tab + filter are preserved).
+      try {
+        const { schema, usedFallback, note } = await inferSchemaClient(parsed);
+        dispatch({ type: "UPGRADE_SCHEMA", schema, usedFallback, note, overrides: overridesFor(schema) });
+      } catch {
+        dispatch({ type: "UPGRADE_SCHEMA", schema: heuristic, usedFallback: true, overrides: overridesFor(heuristic) });
+      }
     } catch (err) {
       dispatch({ type: "ERROR", error: err instanceof Error ? err.message : "Could not auto-load data." });
     }

@@ -17,7 +17,7 @@ import { buildCategories } from "@/lib/categories";
 import { orderCategories } from "@/lib/categoryConfig";
 
 export default function Page() {
-  const { phase, parsed, entities, schema, overrides, error, reset, activeTab, setTab, locationFilter, loadAutoData } = useDashboard();
+  const { phase, parsed, entities, schema, overrides, error, reset, activeTab, setTab, locationFilter, loadAutoData, schemaRefining } = useDashboard();
 
   // No upload splash — land straight in the bundled test data (live, the backend feeds this).
   useEffect(() => {
@@ -80,6 +80,7 @@ export default function Page() {
         onTab={setTab}
         onReset={reset}
         onAnalyze={onAnalyze}
+        refining={schemaRefining}
       />
       {allLocations.length > 0 && (
         <div className="border-b border-line bg-ground/60">

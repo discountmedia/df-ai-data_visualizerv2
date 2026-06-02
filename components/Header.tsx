@@ -18,6 +18,7 @@ export function Header({
   onTab,
   onReset,
   onAnalyze,
+  refining,
 }: {
   fileName: string;
   unitCount: number;
@@ -27,6 +28,7 @@ export function Header({
   onTab: (id: string) => void;
   onReset: () => void;
   onAnalyze?: () => void;
+  refining?: boolean;
 }) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   useEffect(() => {
@@ -55,6 +57,11 @@ export function Header({
             <span className="hidden truncate text-[11px] text-ink-faint md:inline">— {fileName}</span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {refining && (
+              <span className="inline-flex items-center gap-1 border border-working/40 px-2 py-1 text-[10px] uppercase tracking-wider text-working">
+                <span className="animate-pulse">⚡</span> refining
+              </span>
+            )}
             <span className="hidden items-center gap-2 text-[11px] text-ink-faint lg:flex">
               <span>{unitCount.toLocaleString()} units</span>
               <span className={cn("border px-1.5 py-0.5 uppercase",
