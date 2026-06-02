@@ -23,7 +23,7 @@ interface Props {
   columns: ColumnProfile[];
   /** Sensible starting dimension (a column from the clicked category). */
   defaultDimension?: string;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export function CategoryExplorer({ label, sourceKey, rows, columns, defaultDimension, onClose }: Props) {
@@ -94,7 +94,7 @@ export function CategoryExplorer({ label, sourceKey, rows, columns, defaultDimen
           <p className="eyebrow text-brand">Explore · {label}</p>
           <h2 className="mt-0.5 text-sm font-bold text-ink">Find a connection in this data</h2>
         </div>
-        <button onClick={onClose} className="text-[11px] uppercase tracking-wider text-ink-dim hover:text-ink">Close ✕</button>
+        {onClose && <button onClick={onClose} className="text-[11px] uppercase tracking-wider text-ink-dim hover:text-ink">Close ✕</button>}
       </div>
 
       {/* AI-first: ask in plain English. */}

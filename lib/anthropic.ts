@@ -184,6 +184,36 @@ export async function planConnection(input: unknown): Promise<{ spec: Record<str
   return { spec, narrative };
 }
 
+const SUMMARIZE_SYSTEM = `You are an operations analyst for a forklift dealership. You receive a COMPACT snapshot of ONE category tab from an inventory dashboard: the category name, its already-computed headline numbers, and the names of the other tabs. Turn it into a short, concrete operational read for a yard/sales manager — what the numbers mean and what to do about them.
+
+Ground EVERY claim in the supplied numbers and cite them. No filler, no generic advice, no invented figures. If the numbers signal a problem (e.g. committed units with open work, heavy discounting), lead with it.
+
+Return STRICT JSON ONLY (no prose, no markdown fences):
+{
+  "narrative": string,              // 2-4 sentences, the operational read
+  "suggestedQuestions": [string]    // 2-4 specific cross-tab questions a manager would ask next (reference the other tab names / real fields)
+}`;
+
+export async function summarizeCategory(input: unknown): Promise<{ narrative: string; suggestedQuestions: string[] }> {
+  const client = getClient();
+  const msg = await client.messages.create({
+    model: MODEL,
+    max_tokens: 800,
+    system: SUMMARIZE_SYSTEM,
+    messages: [{ role: "user", content: JSON.stringify(input) }],
+  });
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  const parsed = parseJson(text);
+  const narrative = typeof parsed.narrative === "string" ? parsed.narrative : "";
+  const suggestedQuestions = Array.isArray(parsed.suggestedQuestions)
+    ? parsed.suggestedQuestions.map((q: unknown) => String(q)).filter(Boolean).slice(0, 4)
+    : [];
+  return { narrative, suggestedQuestions };
+}
+
 function parseJson(text: string): Record<string, any> {
   const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
   try { return JSON.parse(cleaned); }

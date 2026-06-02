@@ -30,6 +30,7 @@ interface State {
   inferenceNote?: string;
   error?: string;
   locationFilter: string;
+  activeTab: string;
 }
 
 type Action =
@@ -39,6 +40,7 @@ type Action =
   | { type: "READY"; overrides: SchemaOverrides }
   | { type: "ERROR"; error: string }
   | { type: "SET_LOCATION"; location: string }
+  | { type: "SET_TAB"; tab: string }
   | { type: "BACK_TO_REVIEW" }
   | { type: "RESET" };
 
@@ -47,6 +49,7 @@ const initialState: State = {
   overrides: { vetoedColumns: [] },
   usedFallback: false,
   locationFilter: "ALL",
+  activeTab: "",
 };
 
 function reducer(state: State, action: Action): State {
@@ -67,11 +70,13 @@ function reducer(state: State, action: Action): State {
     case "READY":
       // Reset the location filter: the kept columns may have changed in review,
       // so a stale selection could otherwise filter on a now-vetoed column.
-      return { ...state, phase: "ready", overrides: action.overrides, locationFilter: "ALL" };
+      return { ...state, phase: "ready", overrides: action.overrides, locationFilter: "ALL", activeTab: "" };
     case "ERROR":
       return { ...state, phase: "error", error: action.error };
     case "SET_LOCATION":
       return { ...state, locationFilter: action.location };
+    case "SET_TAB":
+      return { ...state, activeTab: action.tab };
     case "BACK_TO_REVIEW":
       return { ...state, phase: "review" };
     case "RESET":
@@ -87,6 +92,7 @@ interface Ctx extends State {
   confirmSchema: (overrides: SchemaOverrides) => void;
   backToReview: () => void;
   setLocation: (loc: string) => void;
+  setTab: (tab: string) => void;
   reset: () => void;
 }
 
@@ -143,6 +149,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     confirmSchema: (overrides) => dispatch({ type: "READY", overrides }),
     backToReview: () => dispatch({ type: "BACK_TO_REVIEW" }),
     setLocation: (loc) => dispatch({ type: "SET_LOCATION", location: loc }),
+    setTab: (tab) => dispatch({ type: "SET_TAB", tab }),
     reset: () => dispatch({ type: "RESET" }),
   };
 

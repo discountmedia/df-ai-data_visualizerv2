@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useDashboard } from "./DashboardProvider";
 import { CategoryExplorer } from "./explore/CategoryExplorer";
+import { buildCategories, resolveCategorySource, columnCategoryLabel, ROLE_LABEL } from "@/lib/categories";
 import { cn } from "@/lib/format";
 import type { ColumnProfile, TrustLevel } from "@/lib/types";
 
@@ -12,21 +13,6 @@ const TRUST_STYLE: Record<TrustLevel, string> = {
   deprecated: "text-diag border-diag/40",
   duplicate: "text-govt border-govt/40",
 };
-const ROLE_LABEL: Record<string, string> = {
-  identifier: "ID", location: "Location", work_stage: "Work Stage", sale_type: "Sale Type",
-  payment_status: "Payment", flag: "Flag", metric: "Metric", date: "Date", other: "Other",
-};
-// Display order for the base (un-prefixed) role categories. Entity categories
-// (Email / Staff / Round Robin …) are appended after, in detection order.
-const ROLE_ORDER = [
-  "identifier", "location", "work_stage", "sale_type",
-  "payment_status", "metric", "flag", "date", "other",
-];
-
-interface Category {
-  label: string;
-  columns: ColumnProfile[];
-}
 
 export function SchemaReview() {
   const { schema, parsed, entities, usedFallback, inferenceNote, confirmSchema } = useDashboard();
@@ -43,34 +29,10 @@ export function SchemaReview() {
   const [vetoed, setVetoed] = useState<Set<string>>(makeSuggested);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  // column name -> entity label (only for prefixed columns like `email::…`).
-  const colEntity = useMemo(() => {
-    const m = new Map<string, string>();
-    entities?.related.forEach((e) => e.columns.forEach((c) => m.set(c, e.label)));
-    return m;
-  }, [entities]);
+  const categoryOf = (c: ColumnProfile) => columnCategoryLabel(c, entities);
 
-  const categoryOf = (c: ColumnProfile) =>
-    colEntity.get(c.name) ?? ROLE_LABEL[c.role] ?? c.role;
-
-  // Grouped categories in display order: base roles first, then entities.
-  const categories = useMemo<Category[]>(() => {
-    const groups = new Map<string, ColumnProfile[]>();
-    for (const c of schema?.columns ?? []) {
-      const cat = colEntity.get(c.name) ?? ROLE_LABEL[c.role] ?? c.role;
-      (groups.get(cat) ?? groups.set(cat, []).get(cat)!).push(c);
-    }
-    const ordered: Category[] = [];
-    for (const role of ROLE_ORDER) {
-      const label = ROLE_LABEL[role];
-      if (groups.has(label)) { ordered.push({ label, columns: groups.get(label)! }); groups.delete(label); }
-    }
-    entities?.related.forEach((e) => {
-      if (groups.has(e.label)) { ordered.push({ label: e.label, columns: groups.get(e.label)! }); groups.delete(e.label); }
-    });
-    for (const [label, columns] of groups) ordered.push({ label, columns }); // any leftovers
-    return ordered;
-  }, [schema, entities, colEntity]);
+  // Grouped categories (shared with the dashboard tabs via lib/categories).
+  const categories = useMemo(() => buildCategories(schema, entities), [schema, entities]);
 
   const concept = schema?.conceptMap ?? {};
   const conceptRows = useMemo(() =>
@@ -86,24 +48,7 @@ export function SchemaReview() {
     if (!activeCategory) return null;
     const cat = categories.find((c) => c.label === activeCategory);
     if (!cat) return null;
-    const ent = entities?.related.find((e) => e.label === cat.label);
-    if (ent) {
-      return {
-        label: cat.label,
-        sourceKey: ent.key,
-        rows: entities!.rowsByEntity[ent.key] ?? [],
-        columns: (schema?.columns ?? []).filter((c) => ent.columns.includes(c.name)),
-        defaultDimension: cat.columns[0]?.name,
-      };
-    }
-    const baseCols = new Set(entities?.base.columns ?? parsed?.columns ?? []);
-    return {
-      label: cat.label,
-      sourceKey: "base",
-      rows: entities?.rowsByEntity["base"] ?? parsed?.rows ?? [],
-      columns: (schema?.columns ?? []).filter((c) => baseCols.has(c.name)),
-      defaultDimension: cat.columns[0]?.name,
-    };
+    return { label: cat.label, ...resolveCategorySource(cat, entities, schema, parsed) };
   }, [activeCategory, categories, entities, schema, parsed]);
 
   if (!schema || !parsed) return null;

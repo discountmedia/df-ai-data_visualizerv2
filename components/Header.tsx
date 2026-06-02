@@ -2,12 +2,9 @@
 
 import { cn } from "@/lib/format";
 
-export type Tab = "overview" | "sales" | "priority" | "all" | "insights";
-
-interface TabDef {
-  id: Tab;
+export interface TabDef {
+  id: string;
   label: string;
-  live: boolean;
   count?: number | null;
 }
 
@@ -15,29 +12,19 @@ export function Header({
   fileName,
   unitCount,
   source,
+  tabs,
   activeTab,
   onTab,
-  salesCount,
-  priorityCount,
   onReset,
 }: {
   fileName: string;
   unitCount: number;
   source: "claude" | "heuristic";
-  activeTab: Tab;
-  onTab: (t: Tab) => void;
-  salesCount: number | null;
-  priorityCount: number | null;
+  tabs: TabDef[];
+  activeTab: string;
+  onTab: (id: string) => void;
   onReset: () => void;
 }) {
-  const tabs: TabDef[] = [
-    { id: "overview", label: "Overview", live: true, count: unitCount },
-    { id: "sales", label: "Sales Team", live: true, count: salesCount },
-    { id: "priority", label: "Priority", live: true, count: priorityCount },
-    { id: "all", label: "All Units", live: true, count: unitCount },
-    { id: "insights", label: "AI Insights", live: true },
-  ];
-
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-ground/90 backdrop-blur">
       <div className="top-rule" />
@@ -70,19 +57,16 @@ export function Header({
             return (
               <button
                 key={t.id}
-                disabled={!t.live}
-                onClick={() => t.live && onTab(t.id)}
+                onClick={() => onTab(t.id)}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs uppercase tracking-wider transition-colors",
-                  active ? "border-brand text-ink" : "border-transparent text-ink-dim hover:text-ink",
-                  !t.live && "cursor-not-allowed text-ink-faint hover:text-ink-faint"
+                  active ? "border-brand text-ink" : "border-transparent text-ink-dim hover:text-ink"
                 )}
               >
                 {t.label}
-                {t.live && t.count != null && (
+                {t.count != null && (
                   <span className={cn("tabular-nums", active ? "text-brand" : "text-ink-faint")}>{t.count}</span>
                 )}
-                {!t.live && <span className="text-[9px] text-ink-faint">soon</span>}
               </button>
             );
           })}

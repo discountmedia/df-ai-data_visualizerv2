@@ -98,7 +98,9 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
 function PriorityRow({ rank, scored, open, onToggle }:
   { rank: number; scored: ScoredUnit; open: boolean; onToggle: () => void }) {
   const u = scored.unit;
-  const title = [u.make, u.model, u.type].filter(Boolean).join(" · ") || u.name || "Unit";
+  const desc = [u.make, u.model, u.type].filter(Boolean).join(" · ");
+  // Lead with the unit's given name (e.g. "Bella") when present.
+  const title = u.name ? (desc ? `${u.name} · ${desc}` : u.name) : desc || "Unit";
   const rawSum = scored.factors.reduce((s, f) => s + f.points, 0);
   return (
     <div className={cn("cursor-pointer px-4 py-3 hover:bg-panel-2", open && "bg-panel-2")} onClick={onToggle}>
