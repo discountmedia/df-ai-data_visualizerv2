@@ -3,16 +3,20 @@
 import { useEffect } from "react";
 
 /**
- * Bridge to PRO — the parent system that will feed this app its data.
+ * Bridge to PRO — the parent system that PUSHES this app its data.
+ *
+ * Hard constraint: this app can NEVER pull / request data from PRO. Its only two
+ * outbound signals are (1) it is ready to receive, and (2) whether it received
+ * the pushed data successfully or not. PRO drives; the app only listens + acks.
  *
  * Handshake (postMessage):
- *   1. App → PRO   `{ source: "DF_INVENTORY", type: "READY" }`   (on load: "send me the payload")
- *   2. PRO → App   `{ source: "PRO", type: "PAYLOAD", payload: {...} }`   (the requested data fields)
- *   3. App → PRO   `{ source: "DF_INVENTORY", type: "PAYLOAD_ACK", ok: true }`   (success confirmation)
+ *   1. App → PRO   `{ source: "DF_INVENTORY", type: "READY" }`   (ready to receive — NOT a request)
+ *   2. PRO → App   `{ source: "PRO", type: "PAYLOAD", payload: {...} }`   (PRO pushes the data)
+ *   3. App → PRO   `{ source: "DF_INVENTORY", type: "PAYLOAD_ACK", ok: true|false }`   (received ok / not)
  *
- * The payload shape is still being defined; for now we accept it, hand it off via
- * a `pro:payload` CustomEvent (so the data layer can consume it later), and
- * confirm receipt to PRO. Replace `isFromPro` / the ack with PRO's real contract.
+ * The payload shape is still being defined; on receipt we hand it off via a
+ * `pro:payload` CustomEvent (for the data layer) and ack success — or ack failure
+ * if it's missing/unusable. Lock `isFromPro` / origins to PRO's real contract.
  */
 
 const APP_ID = "DF_INVENTORY";
@@ -41,18 +45,26 @@ export function ProBridge() {
       if (ALLOWED_ORIGINS !== "*" && !ALLOWED_ORIGINS.includes(event.origin)) return;
       if (!isFromPro(event.data)) return;
 
-      const payload = (event.data as { payload?: unknown }).payload ?? event.data;
+      // We never request data — we only confirm whether PRO's pushed payload
+      // arrived usable (ok:true) or not (ok:false).
+      try {
+        const payload = (event.data as { payload?: unknown }).payload ?? event.data;
+        const empty = payload == null || (typeof payload === "object" && Object.keys(payload as object).length === 0);
+        if (empty) throw new Error("Empty or missing payload");
 
-      // Hand the payload to the data layer (wired up next).
-      window.dispatchEvent(new CustomEvent("pro:payload", { detail: payload }));
+        // Hand the payload to the data layer (wired up next).
+        window.dispatchEvent(new CustomEvent("pro:payload", { detail: payload }));
 
-      // Confirm success back to PRO.
-      reply(event.source, event.origin, {
-        source: APP_ID,
-        type: "PAYLOAD_ACK",
-        ok: true,
-        receivedAt: new Date().toISOString(),
-      });
+        reply(event.source, event.origin, {
+          source: APP_ID, type: "PAYLOAD_ACK", ok: true, receivedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        reply(event.source, event.origin, {
+          source: APP_ID, type: "PAYLOAD_ACK", ok: false,
+          error: err instanceof Error ? err.message : "Failed to receive payload",
+          receivedAt: new Date().toISOString(),
+        });
+      }
     }
 
     window.addEventListener("message", onMessage);
