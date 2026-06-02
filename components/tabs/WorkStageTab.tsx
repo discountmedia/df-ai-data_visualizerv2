@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import type { TabContext } from "./CategoryTab";
-import type { WorkBucket } from "@/lib/types";
 import { TabHeader } from "./TabHeader";
 import { StatCards } from "../viz/StatCards";
 import { ChartPanel } from "../viz/ChartPanel";
@@ -10,12 +9,8 @@ import { CategoryBars } from "../viz/CategoryBars";
 import { PriorityQueue } from "../priority/PriorityQueue";
 import { TabAI } from "./TabAI";
 import { computePivot } from "@/lib/pivot";
-import { WORK_LABEL, WORK_HEX } from "@/lib/buckets";
 import { fmtMoney } from "@/lib/format";
 import { colName, toBars } from "./shared";
-
-const WORK_ORDER: WorkBucket[] = ["needs_diagnosis", "working", "ready", "on_rent", "sold"];
-const STACK: WorkBucket[] = ["needs_diagnosis", "working", "ready", "on_rent"];
 
 export function WorkStageTab({ category, units, scoring, schema, entities, parsed }: TabContext) {
   const baseRows = entities?.rowsByEntity["base"] ?? parsed.rows;
@@ -26,32 +21,8 @@ export function WorkStageTab({ category, units, scoring, schema, entities, parse
   const committedOpenVal = committedOpen.reduce((s, u) => s + (u.price ?? 0), 0);
   const ready = units.filter((u) => u.work === "ready").length;
 
-  // Work-stage mix (bucket colours match Overview).
-  const mixData = useMemo(() => {
-    const c = new Map<WorkBucket, number>();
-    for (const u of units) c.set(u.work, (c.get(u.work) ?? 0) + 1);
-    return WORK_ORDER.filter((b) => (c.get(b) ?? 0) > 0).map((b) => ({ name: WORK_LABEL[b], value: c.get(b)! }));
-  }, [units]);
-  const workColors = Object.fromEntries(WORK_ORDER.map((b) => [WORK_LABEL[b], WORK_HEX[b]]));
-
-  // Backlog by location (stacked, sellable pool only).
-  const byLoc = useMemo(() => {
-    const m = new Map<string, Record<string, number>>();
-    for (const u of units) {
-      if (!STACK.includes(u.work)) continue;
-      const key = u.location ?? "Unassigned";
-      const row = m.get(key) ?? {};
-      row[WORK_LABEL[u.work]] = (row[WORK_LABEL[u.work]] ?? 0) + 1;
-      m.set(key, row);
-    }
-    const data = [...m.entries()]
-      .map(([name, vals]) => ({ name, ...vals }))
-      .sort((a, b) => sum(b) - sum(a)).slice(0, 8);
-    const series = STACK.map((b) => WORK_LABEL[b]).filter((l) => data.some((d) => (d as unknown as Record<string, number>)[l] > 0));
-    return { data, series };
-  }, [units]);
-
-  // Workload by tech.
+  // Service workload by tech — unique to this tab. (Work-stage mix lives on the
+  // Overview; work-stage × location lives on the Location tab — no repeats.)
   const techBars = useMemo(() => {
     if (!servicedBy) return null;
     const res = computePivot(baseRows, { dimension: servicedBy, measure: { kind: "count" }, topN: 10 });
@@ -68,17 +39,6 @@ export function WorkStageTab({ category, units, scoring, schema, entities, parse
         { label: "$ Behind the Shop", value: committedOpenVal || null, money: true, accent: "pif", sub: "committed unfinished value" },
       ]} />
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <ChartPanel title="Work-Stage Mix" hint="live shop status" height={260}>
-          <CategoryBars data={mixData} series={["value"]} layout="vertical" colors={workColors} />
-        </ChartPanel>
-        {byLoc.data.length > 0 && (
-          <ChartPanel title="Backlog by Location" hint="sellable pool · stacked" height={260}>
-            <CategoryBars data={byLoc.data} series={byLoc.series} layout="horizontal" stacked colors={workColors} legend />
-          </ChartPanel>
-        )}
-      </div>
-
       {techBars && (
         <ChartPanel title="Service Workload by Tech" hint="units signed off, by 'Serviced by'" height={260}>
           <CategoryBars data={techBars.data} series={techBars.series} layout="vertical" />
@@ -94,10 +54,4 @@ export function WorkStageTab({ category, units, scoring, schema, entities, parse
       </div>
     </div>
   );
-}
-
-function sum(row: Record<string, unknown>): number {
-  let s = 0;
-  for (const [k, v] of Object.entries(row)) if (k !== "name" && typeof v === "number") s += v;
-  return s;
 }

@@ -66,30 +66,35 @@ export function InsightsTab({ scoring, units, sales }:
         {loading && !result ? (
           <p className="mt-3 text-sm text-ink-faint">Reading the fleet…</p>
         ) : result ? (
-          <>
-            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <ReadColumn label="Claude" sub="primary read" accent="ready"
-                summary={result.summary} insights={result.insights} note={result.note} />
-              {result.second ? (
-                <ReadColumn label="Grok" sub={`second opinion · ${result.second.model}`} accent="rent"
-                  summary={result.second.summary} insights={result.second.insights} />
-              ) : (
-                <div className="border border-line/60 bg-panel-2/50 p-4 text-[11px] text-ink-faint">
-                  <p className="eyebrow text-ink-dim">Grok · second opinion</p>
-                  <p className="mt-2 leading-relaxed">
-                    {result.secondError
-                      ? `Unavailable — ${result.secondError}`
-                      : "Set XAI_API_KEY / XAI_MODEL in Vercel to enable the Grok second opinion."}
-                  </p>
+          (() => {
+            const reads = [
+              { key: "claude", label: "Claude", sub: "primary read", accent: "ready" as const, summary: result.summary, insights: result.insights, note: result.note },
+              ...(result.others ?? []).map((o) => ({
+                key: o.source, label: o.source === "grok" ? "Grok" : "GPT",
+                sub: `2nd opinion · ${o.model}`, accent: "rent" as const,
+                summary: o.summary, insights: o.insights, note: undefined as string | undefined,
+              })),
+            ];
+            const cols = reads.length >= 3 ? "lg:grid-cols-3" : reads.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-1";
+            const errs = result.othersErrors ? Object.entries(result.othersErrors) : [];
+            return (
+              <>
+                <div className={cn("mt-4 grid grid-cols-1 gap-4", cols)}>
+                  {reads.map((r) => (
+                    <ReadColumn key={r.key} label={r.label} sub={r.sub} accent={r.accent} summary={r.summary} insights={r.insights} note={r.note} />
+                  ))}
                 </div>
-              )}
-            </div>
-            {result.second && (
-              <p className="mt-3 text-[11px] text-ink-faint">
-                Two independent reads — where they diverge, look closer. That&apos;s the signal.
-              </p>
-            )}
-          </>
+                {reads.length > 1 && (
+                  <p className="mt-3 text-[11px] text-ink-faint">
+                    {reads.length} independent reads — where they diverge, look closer. That&apos;s the signal.
+                  </p>
+                )}
+                {errs.length > 0 && (
+                  <p className="mt-1 text-[10px] text-ink-faint">Unavailable: {errs.map(([k, v]) => `${k} — ${v}`).join(" · ")}</p>
+                )}
+              </>
+            );
+          })()
         ) : null}
       </section>
 

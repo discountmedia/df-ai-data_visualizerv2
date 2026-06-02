@@ -279,7 +279,7 @@ export interface SecondOpinion {
   summary: string;
   insights: Insight[];
   model: string;
-  source: "grok";
+  source: "grok" | "openai";
 }
 
 export interface InsightsResult {
@@ -287,8 +287,8 @@ export interface InsightsResult {
   insights: Insight[];
   source: "claude" | "heuristic";
   note?: string;
-  /** Independent second-opinion read (Grok), when available. */
-  second?: SecondOpinion | null;
-  /** Why the second opinion is missing (e.g. wrong model string) — for debugging. */
-  secondError?: string;
+  /** Independent second-opinion reads (Grok, GPT) that succeeded. */
+  others?: SecondOpinion[];
+  /** Per-provider error when an opinion is missing (e.g. wrong model string). */
+  othersErrors?: Record<string, string>;
 }

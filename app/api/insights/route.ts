@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateInsights } from "@/lib/anthropic";
-import { generateInsightsXai, hasXai } from "@/lib/xai";
+import { generateSecondOpinions } from "@/lib/secondOpinions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,22 +22,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No snapshot provided." }, { status: 400 });
   }
   try {
-    // Claude is the primary read; Grok runs in parallel as an independent second
-    // opinion. A Grok failure (e.g. wrong model string) never blocks the report.
-    const [claude, grok] = await Promise.allSettled([
+    // Claude is the primary read; Grok + GPT run in parallel as independent second
+    // opinions. Any second-opinion failure is isolated and never blocks the report.
+    const [claude, others] = await Promise.allSettled([
       generateInsights(body),
-      hasXai() ? generateInsightsXai(body) : Promise.reject(new Error("XAI_API_KEY not set")),
+      generateSecondOpinions(body),
     ]);
     if (claude.status !== "fulfilled") throw claude.reason;
-
-    const second = grok.status === "fulfilled"
-      ? { summary: grok.value.summary, insights: grok.value.insights, model: grok.value.model, source: "grok" as const }
-      : null;
-    const secondError = grok.status === "rejected"
-      ? String(grok.reason instanceof Error ? grok.reason.message : grok.reason).slice(0, 240)
-      : undefined;
-
-    return NextResponse.json({ ...claude.value, second, secondError });
+    const second = others.status === "fulfilled" ? others.value : { opinions: [], errors: {} };
+    return NextResponse.json({ ...claude.value, others: second.opinions, othersErrors: second.errors });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Insight generation failed.";
     return NextResponse.json({ error: message }, { status: 500 });

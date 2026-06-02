@@ -119,14 +119,14 @@ export async function fetchInsights(input: InsightsInput): Promise<InsightsResul
     }
     const data = (await res.json()) as {
       summary: string; insights: Insight[];
-      second?: InsightsResult["second"]; secondError?: string;
+      others?: InsightsResult["others"]; othersErrors?: Record<string, string>;
     };
     if (!data.insights?.length && !data.summary) {
       return { ...heuristicInsights(input), source: "heuristic", note: "AI returned no insights — showing the rule-based read." };
     }
     return {
       summary: data.summary, insights: data.insights ?? [], source: "claude",
-      second: data.second ?? null, secondError: data.secondError,
+      others: data.others ?? [], othersErrors: data.othersErrors,
     };
   } catch (err) {
     return {

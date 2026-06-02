@@ -51,14 +51,9 @@ export function OtherTab({ category, units, entities, schema, parsed }: TabConte
         { label: "Needs Diagnosis", value: needsDiag, accent: "diag", sub: "triage backlog" },
       ]} />
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <ChartPanel title="Fleet by Make" hint="top 10 · unit count" height={280}>
-          <CategoryBars data={makeData} series={["value"]} layout="vertical" />
-        </ChartPanel>
-        <ChartPanel title="Inventory by Type" hint="top types · unit count" height={280}>
-          <CategoryBars data={typeData} series={["value"]} layout="vertical" />
-        </ChartPanel>
-      </div>
+      <ChartPanel title="Inventory by Type" hint="top types · unit count" height={280}>
+        <CategoryBars data={typeData} series={["value"]} layout="vertical" />
+      </ChartPanel>
 
       {makeStage.data.length > 0 && (
         <ChartPanel title="Top Makes by Work Stage" hint="what's sellable vs in the shop, by brand" height={300}>

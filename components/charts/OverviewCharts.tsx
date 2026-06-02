@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   Tooltip,
   Cell,
-  Legend,
   type TooltipProps,
 } from "recharts";
 import type { UnitRecord, WorkBucket, SaleBucket } from "@/lib/types";
@@ -22,7 +21,6 @@ const GRID = "#2a2a2e";
 
 const WORK_ORDER: WorkBucket[] = ["needs_diagnosis", "working", "ready", "on_rent", "sold"];
 const SALE_ORDER: SaleBucket[] = ["paid_in_full", "down_payment", "govt_po", "rental", "other"];
-const STACK_BUCKETS: WorkBucket[] = ["needs_diagnosis", "working", "ready", "on_rent"];
 
 function ChartTip({ active, payload, label }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
@@ -73,27 +71,6 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
     }));
   }, [units]);
 
-  const locData = useMemo(() => {
-    type LocRow = { name: string; total: number } & Record<WorkBucket, number>;
-    const byLoc = new Map<string, LocRow>();
-    const seed = (name: string): LocRow => {
-      const r = { name, total: 0 } as LocRow;
-      for (const b of STACK_BUCKETS) r[b] = 0;
-      return r;
-    };
-    for (const u of units) {
-      if (!STACK_BUCKETS.includes(u.work)) continue;
-      const key = u.location ?? "Unassigned";
-      const row = byLoc.get(key) ?? seed(key);
-      row[u.work] += 1;
-      row.total += 1;
-      byLoc.set(key, row);
-    }
-    return Array.from(byLoc.values())
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 8);
-  }, [units]);
-
   const brandData = useMemo(() => {
     const m = new Map<string, number>();
     for (const u of units) if (u.make) m.set(u.make, (m.get(u.make) ?? 0) + 1);
@@ -102,9 +79,8 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
 
   const hasWork = workData.length > 0;
   const hasSale = saleData.length > 0;
-  const hasLoc = locData.length > 0;
   const hasBrand = brandData.length > 0;
-  if (!hasWork && !hasSale && !hasLoc && !hasBrand) return null;
+  if (!hasWork && !hasSale && !hasBrand) return null;
 
   return (
     <section className="space-y-3">
@@ -160,23 +136,6 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
           </Panel>
         )}
       </div>
-
-      {hasLoc && (
-        <Panel title="Work Stage by Location" hint="top locations · stacked">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={locData} margin={{ top: 4, right: 12, bottom: 4, left: -8 }}>
-              <CartesianGrid vertical={false} stroke={GRID} />
-              <XAxis dataKey="name" stroke={AXIS} fontSize={11} tickLine={false} interval={0} />
-              <YAxis stroke={AXIS} fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} />
-              <Tooltip content={<ChartTip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-              <Legend wrapperStyle={{ fontSize: 11, color: AXIS }} iconType="square" iconSize={9} />
-              {STACK_BUCKETS.map((b) => (
-                <Bar key={b} dataKey={b} name={WORK_LABEL[b]} stackId="s" fill={WORK_HEX[b]} isAnimationActive={false} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </Panel>
-      )}
     </section>
   );
 }

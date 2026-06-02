@@ -2,19 +2,18 @@
 
 import { useMemo } from "react";
 import type { TabContext } from "./CategoryTab";
-import type { WorkBucket, LocationSnapshot } from "@/lib/types";
+import type { WorkBucket } from "@/lib/types";
 import { TabHeader } from "./TabHeader";
 import { StatCards } from "../viz/StatCards";
 import { ChartPanel } from "../viz/ChartPanel";
 import { CategoryBars } from "../viz/CategoryBars";
-import { DistributionBar } from "../viz/DistributionBar";
 import { TabAI } from "./TabAI";
 import { WORK_LABEL, WORK_HEX } from "@/lib/buckets";
 import { fmt } from "@/lib/format";
 
 const STACK: WorkBucket[] = ["needs_diagnosis", "working", "ready", "on_rent"];
 
-export function LocationTab({ category, units, metrics, entities, schema, parsed }: TabContext) {
+export function LocationTab({ category, units, entities, schema, parsed }: TabContext) {
   const located = units.filter((u) => u.location);
   const byLoc = useMemo(() => {
     const m = new Map<string, number>();
@@ -77,38 +76,8 @@ export function LocationTab({ category, units, metrics, entities, schema, parsed
         </ChartPanel>
       )}
 
-      {metrics.locations.length > 0 && <LocationsSnapshot locations={metrics.locations} />}
-
       <TabAI category={category} entities={entities} schema={schema} parsed={parsed}
         stats={[`Units located: ${located.length}`, `Distinct locations: ${distinct}`, top ? `Top: ${top.name} (${top.value} units)` : "No location data"]} />
     </div>
-  );
-}
-
-const SEG: { key: keyof LocationSnapshot; cls: string; label: string }[] = [
-  { key: "ready", cls: "bg-ready", label: "Ready" },
-  { key: "working", cls: "bg-working", label: "Working" },
-  { key: "needs_diagnosis", cls: "bg-diag", label: "Needs Diag" },
-  { key: "on_rent", cls: "bg-rent", label: "On Rent" },
-];
-
-function LocationsSnapshot({ locations }: { locations: LocationSnapshot[] }) {
-  return (
-    <section>
-      <p className="eyebrow mb-3">Locations — Snapshot</p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {locations.slice(0, 12).map((l) => (
-          <div key={l.name} className="card p-3">
-            <div className="flex items-baseline justify-between">
-              <span className="truncate text-sm font-bold text-ink">{l.name}</span>
-              <span className="text-[11px] text-ink-faint">{fmt(l.total)} units</span>
-            </div>
-            <div className="mt-2">
-              <DistributionBar segments={SEG.map((s) => ({ label: s.label, value: l[s.key] as number, cls: s.cls }))} legend />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
