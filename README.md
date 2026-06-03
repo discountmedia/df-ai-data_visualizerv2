@@ -1,100 +1,104 @@
 # Discount Forklift — Inventory Intelligence Dashboard
 
-Ingests a messy multi-location forklift inventory export (.xlsx / .xls / .csv),
-infers its schema with Claude (you review and veto columns), and renders a dark
-terminal-styled operations dashboard. Built with Next.js (App Router), React,
-TypeScript, Tailwind, SheetJS, and the Anthropic API.
+A dark, terminal-styled **operations command center** for Discount Forklift (a
+used-forklift dealer). It ingests a messy, multi-table inventory export, infers
+its structure at runtime, and renders fleet KPIs, per-category deep-dive tabs, a
+deterministic priority queue, and a multi-model AI read — all schema-agnostic
+(no column names are ever hardcoded).
 
-## What's in this build
+Built with **Next.js 15 (App Router), React 19, TypeScript, Tailwind, Recharts,
+SheetJS, and the Anthropic / xAI / OpenAI APIs.**
 
-- **Upload & parse** — drag/drop, parsed in the browser with SheetJS.
-- **AI schema inference** — `/api/infer-schema` calls Claude to label column
-  roles/trust and map raw values to buckets. Falls back to a heuristic engine
-  when no API key is set (clearly labeled).
-- **Schema review** — audit the inferred structure and veto columns before
-  anything is computed.
-- **Overview** — grain-aware metric cards (ready / being worked on / needs
-  diagnosis / on rent / sold, plus payment mix) and a per-location snapshot.
-- **Sales Team** *(new)* — rep leaderboard with drill-down (what each rep sold),
-  unsigned-PandaDoc worklist, live round-robin queue board, and lead sources.
+> Agents: read **`CLAUDE.md`** for the full architecture + conventions, and the
+> **`Discount Forklift Design System/`** folder for the non-negotiable brand
+> rules.
 
-### Multi-table ingestion (important)
+## How it works
 
-Real exports often stack several tables in one sheet using a `prefix::field`
-naming convention (inventory rows + `email::`, `round_robin::`, `Staff::`, …).
-The app detects these **structurally** (by prefix — never by hardcoded names)
-and partitions the sheet into entities, so:
+**It loads straight into the data — no upload screen.** On startup the app fetches
+the bundled `public/CuratedFields-TEST.xlsx`, parses it in the browser, and lands directly
+on the dashboard. This mirrors production, where an external system (**PRO**) will
+push the data live; the bundled sheet is the stand-in test data, used as if it
+were live. (The app never *pulls* from PRO — it only signals "ready to receive"
+and acknowledges receipt success/failure. See `CLAUDE.md → PRO integration`.)
 
-- the **Overview** counts only *inventory* rows (not the ~40k related rows), and
-- the **Sales Team** tab reads the email table (outreach volume), the
-  round-robin snapshot, the staff roster (rep → location), and the sold-by /
-  PandaDoc fields on the unit rows.
+Loading is two-stage so you see real numbers instantly:
 
-### Sales metric decisions baked in
+1. An **instant heuristic schema** (client-side) renders the dashboard immediately.
+2. **Claude refines the schema in the background** and swaps the sharper version
+   in seamlessly (a "⚡ refining" pill shows while it runs; the badge flips
+   `heuristic → AI`).
 
-- **Activity = emails sent.** This export has no call log; per-rep email volume
-  is used as the outreach proxy.
-- **Unsigned-doc worklist** counts only genuine open deals (down-payment /
-  paid-in-full with no signature). Govt POs (use a PO, not a PandaDoc) and
-  Removed-from-Inventory rows are excluded.
-- **Round-robin** shows the current *next-up* assignee per queue. This export
-  carries a single live pointer, not a lead-distribution history.
+### Multi-table ingestion
+
+Real exports stack several tables in one sheet via a `prefix::field` convention
+(inventory rows + `email::`, `Staff::`, `round_robin::`). The app detects these
+**structurally** (by prefix, never by name) and partitions the sheet into
+entities — so the unit views read only inventory rows (~1,325 of ~40k), while the
+Staff/Sales views read the email, roster, and round-robin slices.
+
+## Features
+
+- **Overview** — at-a-glance command center: fleet + payment metric cards (big
+  Anton numerals), an "act first" alert banner, work-stage / sales-by-payment /
+  inventory-by-brand bar charts, a per-yard snapshot, and the AI Insights read.
+- **Per-category tabs** — one tab per inferred category (Work Stage, Sale Type,
+  Location, Metric, Staff, Other, Email, Round Robin, …), each with hand-tuned,
+  meaningful charts (leaderboards, scatter, distributions) and a per-tab AI
+  **Summarize** + **Find connections** (a deterministic pivot/cross-tab explorer
+  the AI just *configures*).
+- **Global location filter** — one pill bar filters the entire dashboard.
+- **Priority / Act-Now queue** — deterministic, fully-explainable scoring; every
+  point a unit earns is itemized, and the rules are shown in the Insights panel.
+- **AI Insights — multi-model ensemble** — Claude (primary) plus **Grok** and
+  **GPT** as independent second opinions, side by side, so where the models
+  diverge becomes the signal. Rule-based fallback when no key is set.
+- **Light / dark theme**, the real logo, and the full Discount Forklift design
+  language (monospace, scarce brand red, semantic status colors, **no pie charts**,
+  Unicode-glyph icons).
 
 ## Run locally
 
 ```bash
 npm install
-cp .env.example .env.local      # add ANTHROPIC_API_KEY (optional; heuristics work without it)
-npm run dev                     # http://localhost:3000
+npm run dev      # http://localhost:3000
 ```
 
-Click **Load messy sample data (multi-table)** to try it with no file/key.
+Optionally add keys to `.env.local` (the app runs on heuristics without them):
 
-## Deploy to Vercel
+```bash
+ANTHROPIC_API_KEY=sk-ant-...     # Claude: schema inference + insights + summarize + connect
+XAI_API_KEY=...                  # Grok second opinion   (XAI_MODEL optional)
+OPENAI_API_KEY=...               # GPT second opinion    (OPENAI_MODEL optional, default gpt-4o)
+```
 
-Push to GitHub and import the repo (zero-config). Set the environment variable:
+> Note: `next dev` caches the `public/` listing at startup — if you change the
+> bundled data file, restart the dev server.
 
-| Variable            | Required | Notes                                                    |
-| ------------------- | -------- | -------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | no*      | Enables AI schema inference. Server-side only.           |
-| `ANTHROPIC_MODEL`   | no       | Defaults to `claude-sonnet-4-6`.                         |
+## Deploy (Vercel)
 
-*Without it the app runs on the heuristic engine and labels itself accordingly.
-The key is read only in the API route and is never exposed to the browser.
+Push to **`mainv2`**; the Vercel git integration auto-deploys. Required build
+settings: **Root Directory `.`**, **Framework Next.js**, **Output Directory
+default**. Set the API keys above as Environment Variables (server-side only —
+never exposed to the browser).
 
-## Conventions (apply to all current and future work)
+## Conventions (apply to all work)
 
-- **Charts:** no pie charts. Bar, scatter, percentage-point and delta views only — visuals that show magnitude and comparison.
-- **Tables:** sort by clicking a header; `table-fixed` + explicit column widths + a constant-width sort indicator mean rows reorder in place with no jump, resize, or reflow.
-- **Scoring:** criteria must be operationally usable (drive what a yard actually works next), never decorative.
-
-## Roadmap
-
-- [x] Upload + parse + AI schema inference + veto + Overview
-- [x] Multi-table ingestion + **Sales Team** tab
-- [x] Sortable / filterable **All Units** table with status pills
-- [x] **Charts** (work-stage mix, by location, sales by payment type) on Overview
-- [x] **Priority / Act-Now** queue — deterministic scoring with per-unit breakdown
-- [x] **AI Insights** tab with a visible "how scores were calculated" panel
-
-### How priority scoring works
-
-Scoring is **deterministic and fully explainable** — no unit is ranked by AI.
-The single question it answers is *which units should the yard work next?* The
-dominant driver is **committed-but-unfinished** units (a customer has paid or
-committed but the unit isn't deliverable, so revenue is stuck); work-stage
-urgency orders the rest. Every point a unit earns is itemised on its row, and
-the exact rules/weights are shown in the Insights tab's *How Scores Were
-Calculated* panel. The **AI Insights** layer adds a portfolio-level narrative on
-top in one batched call (with a rule-based fallback when no API key is set); it
-never computes the score.
+- **No pie/donut charts.** Bars, stacked bars, scatter, and CSS distribution bars
+  only — visuals that show magnitude and comparison.
+- **AI never computes numbers or ranks units.** Scoring and every metric are
+  deterministic (same export → same result); AI adds narrative/interpretation only.
+- **Each view has one home** — don't show the same chart on multiple tabs.
+- **Design tokens are fixed** (`Discount Forklift Design System/colors_and_type.css`,
+  `tailwind.config.ts`): dark, monospace, brand red scarce, Anton for big numbers.
 
 ## Notes & limitations
 
-- Priority scoring is deterministic — the same export always produces the same
-  ranking. The AI layer adds narrative only; it does not rank units.
-- Aged-inventory signals (e.g. how long a Ready unit has sat) are not yet a
-  scoring factor — they need a reliable date column, which most exports lack.
-- Rep ↔ roster ↔ email matching is best-effort (names are padded with employee
-  IDs and joined via the staff roster); odd names may not map to a location.
-- All processing is in-memory per session; nothing is persisted server-side.
+- The heuristic schema is instant but coarse; some counts sharpen once the
+  background AI refine completes.
+- Aged-inventory signals aren't a scoring factor yet (most exports lack a reliable
+  date column).
+- Rep ↔ roster ↔ email matching is best-effort (names are padded with employee IDs
+  and joined via the staff roster).
+- All processing is in-memory per session; nothing is persisted server-side. The
+  live PRO data pipeline is roadmapped.

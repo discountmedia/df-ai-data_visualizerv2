@@ -152,10 +152,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const loadAutoData = useCallback(async () => {
     dispatch({ type: "PARSING" });
     try {
-      const res = await fetch("/inventory.xlsx");
+      const res = await fetch("/CuratedFields-TEST.xlsx");
       if (!res.ok) throw new Error(`Could not load bundled data (${res.status}).`);
       const blob = await res.blob();
-      const file = new File([blob], "TEST2EXCEL.xlsx", {
+      const file = new File([blob], "CuratedFields-TEST.xlsx", {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const parsed = await parseSpreadsheet(file);
