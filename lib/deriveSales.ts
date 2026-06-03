@@ -27,6 +27,34 @@ function cleanName(v: CellValue): { name: string; repId: string | null } | null 
   return { name: s, repId: null };
 }
 
+/**
+ * Fallback: resolve a rep's sender address by first name when the username join
+ * misses. Strict on purpose — rejects compound/paired seller strings ("Aaron G
+ * & Zellner", "Jennie & Rico"), requires exactly one sender to match by username
+ * or exact local-part, and — when that sender is on the roster — confirms it is
+ * the SAME person (not just a first-name twin). Returns null rather than ever
+ * hand one rep another's address.
+ */
+function matchEmailByFirstName(
+  name: string,
+  byUsername: Map<string, string>,
+  usernameToName: Map<string, string>
+): string | null {
+  if (/[&,/]/.test(name)) return null; // paired/compound seller string — can't attribute
+  const first = name.toLowerCase().split(/\s+/).filter(Boolean)[0];
+  if (!first) return null;
+  const matches: { user: string; addr: string }[] = [];
+  for (const [user, addr] of byUsername) {
+    const local = (addr.split("@")[0] ?? "").toLowerCase();
+    if (user === first || local === first) matches.push({ user, addr });
+  }
+  if (matches.length !== 1) return null; // ambiguous → don't guess
+  // If the matched sender maps to a known roster name, it must be this same rep.
+  const full = usernameToName.get(matches[0].user);
+  if (full && full.toLowerCase() !== name.toLowerCase()) return null;
+  return matches[0].addr;
+}
+
 /* --- main --- */
 
 export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSummary {
@@ -80,27 +108,34 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
     }
   }
 
-  // --- Email volume (activity proxy): count by sender username ---
+  // --- Email volume (activity proxy) + rep sender address, keyed by username ---
+  // There is no contact-email column on the Staff roster; a rep's email is their
+  // outbound sender address (email::email_from_address), joined by the same staff
+  // username used for the email counts.
   const emailEntity = entities.related.find(
     (e) => /email/i.test(e.key) && findColumn(e.columns, [/staff_user|from_address/i])
   );
   const emailsByUsername = new Map<string, number>();
+  const emailAddrByUsername = new Map<string, string>();
   let totalEmails: number | null = null;
   if (emailEntity) {
-    const senderCol = findColumn(emailEntity.columns, [/staff_user/i, /from_address/i]);
+    const userCol = findColumn(emailEntity.columns, [/staff_user/i]);
+    const fromCol = findColumn(emailEntity.columns, [/from_address/i]);
+    const senderCol = userCol ?? fromCol; // count key — prefer the username
     const rows = entities.rowsByEntity[emailEntity.key] ?? [];
     totalEmails = rows.length;
-    if (senderCol) {
-      for (const r of rows) {
-        const v = r[senderCol];
-        if (v == null) continue;
-        const key = String(v).trim().toLowerCase();
-        emailsByUsername.set(key, (emailsByUsername.get(key) ?? 0) + 1);
-      }
+    for (const r of rows) {
+      const key = senderCol && r[senderCol] != null ? String(r[senderCol]).trim().toLowerCase() : null;
+      if (key) emailsByUsername.set(key, (emailsByUsername.get(key) ?? 0) + 1);
+      // First stable from-address per username is the rep's own address.
+      const uname = userCol && r[userCol] != null ? String(r[userCol]).trim().toLowerCase() : key;
+      const addr = fromCol && r[fromCol] != null ? String(r[fromCol]).trim() : null;
+      if (uname && addr && /@/.test(addr) && !emailAddrByUsername.has(uname)) emailAddrByUsername.set(uname, addr);
     }
   } else {
     notes.push("No email table detected — 'emails sent' is unavailable.");
   }
+  notes.push("No phone column in the export — rep phone shows as “—”.");
 
   // --- Build the rep map: anchor on sellers ∪ staff roster ---
   const reps = new Map<string, SalesRep>();
@@ -114,6 +149,8 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
         repId,
         location: roster?.dept ?? null,
         title: roster?.title ?? null,
+        email: null,
+        phone: null,
         unitsSold: 0,
         totalSale: 0,
         avgSale: null,
@@ -171,7 +208,7 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
     }
   }
 
-  // Attach email counts via roster username.
+  // Attach email count + sender address via roster username.
   for (const rep of reps.values()) {
     const roster = rosterByName.get(rep.name.toLowerCase());
     const uname = roster?.username;
@@ -179,6 +216,11 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
       const count = uname ? emailsByUsername.get(uname) : undefined;
       rep.emailsSent = count ?? 0;
     }
+    // Username match first; fall back to an unambiguous first-name match so reps
+    // without a roster row still resolve. Never guess on a collision.
+    rep.email = (uname ? emailAddrByUsername.get(uname) : undefined)
+      ?? matchEmailByFirstName(rep.name, emailAddrByUsername, usernameToName)
+      ?? null;
     rep.avgSale = rep.unitsSold > 0 && rep.totalSale != null ? Math.round(rep.totalSale / rep.unitsSold) : null;
     if (rep.unitsSold === 0) rep.totalSale = null;
   }

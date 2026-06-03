@@ -139,6 +139,10 @@ export interface SalesRep {
   repId: string | null;
   location: string | null;
   title: string | null;
+  /** Outbound sender address (email::email_from_address). No contact-email column exists. */
+  email: string | null;
+  /** No phone column exists anywhere in the export; always null (UI shows "—"). */
+  phone: string | null;
   unitsSold: number;
   totalSale: number | null;
   avgSale: number | null;

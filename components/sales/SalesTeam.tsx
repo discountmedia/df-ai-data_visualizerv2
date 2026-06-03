@@ -1,16 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SalesSummary, SalesRep, SoldUnit, SaleBucket } from "@/lib/types";
 import { cn, fmt, fmtMoney } from "@/lib/format";
+import {
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+} from "recharts";
 import { EmptyState } from "../states/States";
+import { ChartPanel } from "../viz/ChartPanel";
+import { AXIS, GRID, ChartTip } from "../viz/chartTheme";
+import { Pager } from "../ui/Pager";
+import { SalesAI } from "./SalesAI";
 
 type SortKey = "unitsSold" | "totalSale" | "avgSale" | "emailsSent" | "unsignedDocs" | "name";
+const PAGE = 25;
 
 export function SalesTeam({ summary }: { summary: SalesSummary }) {
   const [sortKey, setSortKey] = useState<SortKey>("unitsSold");
   const [asc, setAsc] = useState(false);
   const [openRep, setOpenRep] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  // Snap to page 1 whenever the sort or search changes underfoot.
+  useEffect(() => setPage(0), [sortKey, asc, q]);
+
+  const activeReps = summary.reps.filter((r) => r.unitsSold > 0).length;
+  const totalSaleVal = summary.reps.reduce((s, r) => s + (r.totalSale ?? 0), 0);
+  const avgSale = summary.totalSold > 0 ? Math.round(totalSaleVal / summary.totalSold) : null;
+  const allSold = useMemo(() => Object.values(summary.soldUnitsByRep).flat(), [summary.soldUnitsByRep]);
+  const signedDeals = allSold.filter((u) => u.signed).length;
+  const signRate = allSold.length ? Math.round((signedDeals / allSold.length) * 100) : 0;
+
+  const sorted = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const rows = needle
+      ? summary.reps.filter((r) => `${r.name} ${r.location ?? ""}`.toLowerCase().includes(needle))
+      : summary.reps;
+    const dir = asc ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
+      return ((num(a[sortKey]) - num(b[sortKey])) * dir) || (b.unitsSold - a.unitsSold);
+    });
+  }, [summary.reps, sortKey, asc, q]);
+
+  const setSort = (k: SortKey) => {
+    if (k === sortKey) setAsc(!asc);
+    else { setSortKey(k); setAsc(k === "name"); }
+  };
 
   if (summary.reps.length === 0 && summary.totalSold === 0) {
     return (
@@ -21,113 +59,141 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
     );
   }
 
-  const sorted = [...summary.reps].sort((a, b) => {
-    const dir = asc ? 1 : -1;
-    if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
-    return ((num(a[sortKey]) - num(b[sortKey])) * dir) || (b.unitsSold - a.unitsSold);
-  });
-
-  const setSort = (k: SortKey) => {
-    if (k === sortKey) setAsc(!asc);
-    else { setSortKey(k); setAsc(k === "name"); }
-  };
-
-  const activeReps = summary.reps.filter((r) => r.unitsSold > 0).length;
-  const totalSaleVal = summary.reps.reduce((s, r) => s + (r.totalSale ?? 0), 0);
-  const avgSale = summary.totalSold > 0 ? Math.round(totalSaleVal / summary.totalSold) : null;
-  const allSold = useMemo(() => Object.values(summary.soldUnitsByRep).flat(), [summary.soldUnitsByRep]);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE));
+  const clampedPage = Math.min(page, pageCount - 1);
+  const start = clampedPage * PAGE;
+  const shown = sorted.slice(start, start + PAGE);
 
   return (
-    <div className="space-y-5 fade-up">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <p className="eyebrow text-brand">Sales Team</p>
-          <h1 className="mt-1 text-xl font-bold text-ink">Who&apos;s closing — and what&apos;s still open</h1>
+    <div className="fade-up lg:grid lg:grid-cols-[252px_minmax(0,1fr)] lg:gap-5">
+      {/* Main column (first in DOM → on top on mobile, right rail on desktop) */}
+      <div className="min-w-0 space-y-5 lg:col-start-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <p className="eyebrow text-brand">Sales Team</p>
+            <h1 className="mt-1 text-xl font-bold text-ink">Who&apos;s closing — and what&apos;s still open</h1>
+          </div>
+          <span className="text-[11px] text-ink-faint">company-wide · not filtered by yard</span>
         </div>
-        <span className="text-[11px] text-ink-faint">company-wide · not filtered by yard</span>
-      </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <Card label="Total Sold" value={fmt(summary.totalSold)} accent="text-diag" sub="Attributed units" />
-        <Card label="Reps Active" value={fmt(activeReps)} accent="text-ink" sub={`${summary.reps.length} on team`} />
-        <Card label="Unsigned Docs" value={fmt(summary.unsignedCount)} accent="text-working" sub="Real open deals" />
-        <Card label="Avg Sale" value={fmtMoney(avgSale)} accent="text-ready" sub="Per unit" />
-        <Card label="Total Sales $" value={fmtMoney(totalSaleVal || null)} accent="text-pif" sub="Attributed" />
-        <Card
-          label="Emails Sent"
-          value={summary.emailsAvailable ? fmt(summary.totalEmails) : "—"}
-          accent="text-rent"
-          sub={summary.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <Card label="Total Sold" value={fmt(summary.totalSold)} accent="text-diag" sub="Attributed units" />
+          <Card label="Reps Active" value={fmt(activeReps)} accent="text-ink" sub={`${summary.reps.length} on team`} />
+          <Card label="Unsigned Docs" value={fmt(summary.unsignedCount)} accent="text-working" sub="Real open deals" />
+          <Card label="Avg Sale" value={fmtMoney(avgSale)} accent="text-ready" sub="Per unit" />
+          <Card label="Total Sales $" value={fmtMoney(totalSaleVal || null)} accent="text-pif" sub="Attributed" />
+          <Card
+            label="Emails Sent"
+            value={summary.emailsAvailable ? fmt(summary.totalEmails) : "—"}
+            accent="text-rent"
+            sub={summary.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
+          />
+        </div>
+
+        {/* Opt-in AI analyzer — directly beneath the KPI cards */}
+        <SalesAI
+          summary={summary}
+          activeReps={activeReps}
+          totalSaleVal={totalSaleVal}
+          avgSale={avgSale}
+          signed={signedDeals}
+          totalDeals={allSold.length}
+          signRate={signRate}
         />
+
+        {/* Engaging visuals */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="lg:col-span-2"><SalesRace reps={summary.reps} /></div>
+          <DealHealth units={allSold} />
+        </div>
+
+        {/* Emails vs units per rep */}
+        <EmailsChart summary={summary} />
+
+        {/* Leaderboard (25 / page) */}
+        <section className="card overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <p className="eyebrow">Sales Team — Leaderboard</p>
+            <div className="relative w-full sm:w-56">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search rep or location…"
+                className="w-full border border-line bg-panel-2/60 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
+              />
+              {q && (
+                <button onClick={() => setQ("")} aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-faint hover:text-ink">✕</button>
+              )}
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] table-fixed text-left text-xs">
+              <colgroup>
+                <col style={{ width: "200px" }} />
+                <col style={{ width: "130px" }} />
+                <col style={{ width: "90px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "100px" }} />
+                <col style={{ width: "110px" }} />
+              </colgroup>
+              <thead>
+                <tr className="border-y border-line text-ink-dim">
+                  <Th label="Rep" k="name" cur={sortKey} asc={asc} onSort={setSort} />
+                  <th className="px-4 py-2 font-normal">Location</th>
+                  <Th label="Units" k="unitsSold" cur={sortKey} asc={asc} onSort={setSort} num />
+                  <Th label="Total $" k="totalSale" cur={sortKey} asc={asc} onSort={setSort} num />
+                  <Th label="Avg $" k="avgSale" cur={sortKey} asc={asc} onSort={setSort} num />
+                  <Th label="Emails" k="emailsSent" cur={sortKey} asc={asc} onSort={setSort} num />
+                  <Th label="Unsigned" k="unsignedDocs" cur={sortKey} asc={asc} onSort={setSort} num />
+                </tr>
+              </thead>
+              <tbody>
+                {shown.length === 0 ? (
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-[12px] text-ink-faint">
+                    No reps match {q ? <span className="text-ink">“{q}”</span> : "this filter"}.
+                  </td></tr>
+                ) : (
+                  shown.map((r) => (
+                    <RepRow
+                      key={r.name}
+                      rep={r}
+                      open={openRep === r.name}
+                      units={summary.soldUnitsByRep[r.name] ?? []}
+                      emailsAvailable={summary.emailsAvailable}
+                      onToggle={() => setOpenRep(openRep === r.name ? null : r.name)}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pager page={clampedPage} pageCount={pageCount} start={start} shown={shown.length} total={sorted.length} onPage={setPage} />
+        </section>
+
+        {/* Round robin + lead sources */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <RoundRobinPanel summary={summary} />
+          <LeadSourcesPanel summary={summary} />
+        </div>
+
+        {/* Unsigned worklist */}
+        <UnsignedPanel units={summary.unsignedWorklist} />
+
+        {summary.notes.length > 0 && (
+          <div className="card border-line p-3">
+            {summary.notes.map((n, i) => (
+              <p key={i} className="text-[11px] text-ink-faint">· {n}</p>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Engaging visuals */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <div className="lg:col-span-2"><SalesRace reps={summary.reps} /></div>
-        <DealHealth units={allSold} />
-      </div>
-
-      {/* Leaderboard */}
-      <section className="card overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <p className="eyebrow">Sales Team — Leaderboard</p>
-          <p className="text-[11px] text-ink-faint">click a rep for what they sold · click a header to sort</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] table-fixed text-left text-xs">
-            <colgroup>
-              <col style={{ width: "200px" }} />
-              <col style={{ width: "130px" }} />
-              <col style={{ width: "90px" }} />
-              <col style={{ width: "120px" }} />
-              <col style={{ width: "110px" }} />
-              <col style={{ width: "100px" }} />
-              <col style={{ width: "110px" }} />
-            </colgroup>
-            <thead>
-              <tr className="border-y border-line text-ink-dim">
-                <Th label="Rep" k="name" cur={sortKey} asc={asc} onSort={setSort} />
-                <th className="px-4 py-2 font-normal">Location</th>
-                <Th label="Units" k="unitsSold" cur={sortKey} asc={asc} onSort={setSort} num />
-                <Th label="Total $" k="totalSale" cur={sortKey} asc={asc} onSort={setSort} num />
-                <Th label="Avg $" k="avgSale" cur={sortKey} asc={asc} onSort={setSort} num />
-                <Th label="Emails" k="emailsSent" cur={sortKey} asc={asc} onSort={setSort} num />
-                <Th label="Unsigned" k="unsignedDocs" cur={sortKey} asc={asc} onSort={setSort} num />
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((r) => (
-                <RepRow
-                  key={r.name}
-                  rep={r}
-                  open={openRep === r.name}
-                  units={summary.soldUnitsByRep[r.name] ?? []}
-                  emailsAvailable={summary.emailsAvailable}
-                  onToggle={() => setOpenRep(openRep === r.name ? null : r.name)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Round robin + lead sources */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <RoundRobinPanel summary={summary} />
-        <LeadSourcesPanel summary={summary} />
-      </div>
-
-      {/* Unsigned worklist */}
-      <UnsignedPanel units={summary.unsignedWorklist} />
-
-      {summary.notes.length > 0 && (
-        <div className="card border-line p-3">
-          {summary.notes.map((n, i) => (
-            <p key={i} className="text-[11px] text-ink-faint">· {n}</p>
-          ))}
-        </div>
-      )}
+      {/* Roster rail (left on desktop) */}
+      <RosterSidebar reps={summary.reps} selected={selected} onSelect={setSelected} />
     </div>
   );
 }
@@ -136,7 +202,104 @@ function num(v: number | null): number {
   return v ?? 0;
 }
 
-const MEDAL = ["🥇", "🥈", "🥉"];
+/** Left rail listing the whole team; click a name → contact card. */
+function RosterSidebar({ reps, selected, onSelect }:
+  { reps: SalesRep[]; selected: string | null; onSelect: (n: string | null) => void }) {
+  const roster = useMemo(() => [...reps].sort((a, b) => a.name.localeCompare(b.name)), [reps]);
+  const sel = selected ? reps.find((r) => r.name === selected) ?? null : null;
+  return (
+    <aside className="mb-5 lg:col-start-1 lg:row-start-1 lg:mb-0 lg:sticky lg:top-4 lg:self-start">
+      <div className="card p-3">
+        <p className="eyebrow mb-2">Roster <span className="text-ink-faint">· {reps.length}</span></p>
+        {sel && <RosterCard rep={sel} onClose={() => onSelect(null)} />}
+        <div className={cn("space-y-0.5 overflow-y-auto pr-1", sel ? "max-h-[34vh]" : "max-h-[64vh]")}>
+          {roster.map((r) => {
+            const active = r.name === selected;
+            return (
+              <button
+                key={r.name}
+                onClick={() => onSelect(active ? null : r.name)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors",
+                  active ? "bg-brand/10 text-ink" : "text-ink-dim hover:bg-panel-2 hover:text-ink"
+                )}
+              >
+                <span className="truncate">{r.name}</span>
+                <span className="shrink-0 tabular-nums text-ink-faint">{r.unitsSold || 0}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function RosterCard({ rep, onClose }: { rep: SalesRep; onClose: () => void }) {
+  return (
+    <div className="mb-2 border border-line bg-panel-2/50 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-ink">{rep.name}</p>
+          {rep.title && <p className="truncate text-[10px] text-ink-faint">{rep.title}</p>}
+        </div>
+        <button onClick={onClose} aria-label="Close" className="shrink-0 text-xs text-ink-faint hover:text-ink">✕</button>
+      </div>
+      <dl className="mt-2.5 space-y-1.5 text-[11px]">
+        <ContactRow k="Email" v={rep.email} href={rep.email ? `mailto:${rep.email}` : null} />
+        <ContactRow k="Phone" v={rep.phone} />
+        <ContactRow k="Location" v={rep.location} />
+        <ContactRow k="Units sold" v={fmt(rep.unitsSold || 0)} />
+        <ContactRow k="Total $" v={rep.totalSale != null ? fmtMoney(rep.totalSale) : null} />
+      </dl>
+    </div>
+  );
+}
+
+function ContactRow({ k, v, href }: { k: string; v: string | null; href?: string | null }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b border-line/30 pb-1">
+      <dt className="shrink-0 text-ink-faint">{k}</dt>
+      <dd className="min-w-0 truncate text-right text-ink-dim" title={v ?? undefined}>
+        {v ? (href ? <a href={href} className="text-brand hover:underline">{v}</a> : v) : <span className="text-ink-faint">—</span>}
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * Per-rep email volume vs units sold. Emails dwarf unit counts by ~2 orders of
+ * magnitude, so they ride a dual axis — bars (left) for emails, a line (right)
+ * for closes — which keeps both honestly visible. No pie, per house rules.
+ */
+function EmailsChart({ summary }: { summary: SalesSummary }) {
+  const data = useMemo(
+    () =>
+      [...summary.reps]
+        .filter((r) => (r.emailsSent ?? 0) > 0)
+        .sort((a, b) => (b.emailsSent ?? 0) - (a.emailsSent ?? 0))
+        .slice(0, 12)
+        .map((r) => ({ name: r.name, "Emails sent": r.emailsSent ?? 0, "Units sold": r.unitsSold })),
+    [summary.reps]
+  );
+  if (!summary.emailsAvailable || data.length === 0) return null;
+  return (
+    <ChartPanel title="Outreach vs Closes" hint="emails sent (bars) vs units sold (line) · top 12 by email volume" height={300}>
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 58, left: 0 }}>
+          <CartesianGrid vertical={false} stroke={GRID} />
+          <XAxis dataKey="name" stroke={AXIS} fontSize={11} tickLine={false} interval={0} angle={-30} textAnchor="end" height={66} />
+          <YAxis yAxisId="emails" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
+          <YAxis yAxisId="units" orientation="right" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+          <Tooltip content={<ChartTip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+          <Legend wrapperStyle={{ fontSize: 11, color: AXIS }} iconType="square" iconSize={9} />
+          <Bar yAxisId="emails" dataKey="Emails sent" fill="#3aa0ff" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+          <Line yAxisId="units" dataKey="Units sold" stroke="#ff8a3d" strokeWidth={2} dot={{ r: 3, fill: "#ff8a3d" }} isAnimationActive={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </ChartPanel>
+  );
+}
 
 /** A horizontal "race" of the top reps by units sold — the page's hero visual. */
 function SalesRace({ reps }: { reps: SalesRep[] }) {
@@ -159,8 +322,11 @@ function SalesRace({ reps }: { reps: SalesRep[] }) {
       <div className="mt-3 space-y-2">
         {ranked.map((r, i) => (
           <div key={r.name} className="flex items-center gap-2">
-            <span className="w-6 shrink-0 text-center text-sm">
-              {i < 3 ? MEDAL[i] : <span className="text-[11px] tabular-nums text-ink-faint">{i + 1}</span>}
+            <span className={cn(
+              "w-6 shrink-0 text-center text-xs tabular-nums",
+              i === 0 ? "font-bold text-brand" : i < 3 ? "text-ink" : "text-ink-faint"
+            )}>
+              {i + 1}
             </span>
             <span className="w-24 shrink-0 truncate text-xs text-ink-dim sm:w-36" title={r.name}>{r.name}</span>
             <div className="relative h-5 flex-1 overflow-hidden rounded-sm bg-panel-2">
