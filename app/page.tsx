@@ -7,63 +7,54 @@ import { Header } from "@/components/Header";
 import { LocationBar } from "@/components/LocationBar";
 import { OverviewGrid } from "@/components/overview/OverviewGrid";
 import { InsightsTab } from "@/components/insights/InsightsTab";
-import { CategoryTab } from "@/components/tabs/CategoryTab";
+import { SalesTeam } from "@/components/sales/SalesTeam";
+import { WorkStageView } from "@/components/tabs/WorkStageView";
+import { OctaneView } from "@/components/tabs/OctaneView";
 import { LoadingState, ErrorState, EmptyState } from "@/components/states/States";
 import { deriveSales } from "@/lib/deriveSales";
 import { deriveUnits } from "@/lib/deriveUnits";
-import { deriveMetrics } from "@/lib/deriveMetrics";
 import { scoreUnits } from "@/lib/score";
-import { buildCategories } from "@/lib/categories";
-import { orderCategories } from "@/lib/categoryConfig";
+import { splitOctaneUnits } from "@/lib/octane";
+import { locationBucket, bucketedLocations } from "@/lib/location";
 
 export default function Page() {
-  const { phase, parsed, entities, schema, overrides, error, reset, activeTab, setTab, locationFilter, loadAutoData, schemaRefining } = useDashboard();
+  const {
+    phase, parsed, entities, schema, overrides, error, reset,
+    activeTab, setTab, locationFilter, loadAutoData, schemaRefining,
+  } = useDashboard();
 
-  // No upload splash — land straight in the bundled test data (live, the backend feeds this).
+  // No upload splash — land straight in the bundled data (live, PRO pushes this).
   useEffect(() => {
     if (phase === "idle") loadAutoData();
   }, [phase, loadAutoData]);
 
-  const salesSummary = useMemo(
-    () => (entities && schema ? deriveSales(entities, schema) : null),
-    [entities, schema]
-  );
-  const allUnits = useMemo(
-    () => (entities && schema ? deriveUnits(entities, schema, overrides) : []),
-    [entities, schema, overrides]
-  );
-  // Global location filter — drives the Overview AND every category tab.
-  const units = useMemo(
-    () => (locationFilter === "ALL" ? allUnits : allUnits.filter((u) => (u.location ?? "Unassigned") === locationFilter)),
-    [allUnits, locationFilter]
-  );
-  const scoring = useMemo(() => scoreUnits(units), [units]);
-  const metrics = useMemo(() => deriveMetrics(units), [units]);
-  // Full (unfiltered) location list so the filter bar + yard snapshot always show every yard.
-  const allLocations = useMemo(() => deriveMetrics(allUnits).locations, [allUnits]);
-  const categories = useMemo(() => orderCategories(buildCategories(schema, entities)), [schema, entities]);
+  const salesSummary = useMemo(() => (entities && schema ? deriveSales(entities, schema) : null), [entities, schema]);
+  const allUnits = useMemo(() => (entities && schema ? deriveUnits(entities, schema, overrides) : []), [entities, schema, overrides]);
+  // OCTANE is a separate company — split it out so its units never blend into DF metrics.
+  const { df, octane } = useMemo(() => splitOctaneUnits(allUnits), [allUnits]);
 
-  if (phase === "idle") return <LoadingState label="Loading inventory…" />;
-  if (phase === "parsing") return <LoadingState label="Parsing inventory export…" />;
+  // Global location filter (4 yards + Other) drives every tab.
+  const byLoc = (units: typeof df) => (locationFilter === "ALL" ? units : units.filter((u) => locationBucket(u.location) === locationFilter));
+  const dfFiltered = useMemo(() => byLoc(df), [df, locationFilter]);
+  const octaneFiltered = useMemo(() => byLoc(octane), [octane, locationFilter]);
+  const scoring = useMemo(() => scoreUnits(dfFiltered), [dfFiltered]);
+  const filterBar = useMemo(() => bucketedLocations(df), [df]);
+  const overviewSnapshot = useMemo(() => bucketedLocations(dfFiltered), [dfFiltered]);
+
+  if (phase === "idle" || phase === "parsing") return <LoadingState label="Loading inventory…" />;
   if (phase === "inferring") return <LoadingState label="Inferring schema with AI…" />;
   if (phase === "error")
-    return (
-      <div className="px-5 py-16">
-        <ErrorState message={error ?? "Something went wrong."} onRetry={reset} />
-      </div>
-    );
+    return <div className="px-5 py-16"><ErrorState message={error ?? "Something went wrong."} onRetry={reset} /></div>;
   if (phase === "review") return <SchemaReview />;
-
-  // ready
   if (!parsed || !schema) return null;
-  const unitCount = entities?.base.rowCount ?? parsed.rows.length;
+
   const current = activeTab || "overview";
   const tabs = [
-    { id: "overview", label: "Overview", count: unitCount },
-    ...categories.map((c) => ({ id: `cat:${c.id}`, label: c.label, count: c.columns.length })),
+    { id: "overview", label: "Overview", count: dfFiltered.length },
+    { id: "workstage", label: "Work Stage", count: scoring.scoredCount },
+    { id: "sales", label: "Sales Team", count: salesSummary ? salesSummary.totalSold : null },
+    { id: "octane", label: "OCTANE", count: octane.length },
   ];
-  const activeCat = current.startsWith("cat:") ? categories.find((c) => `cat:${c.id}` === current) : null;
-
   const onAnalyze = () => {
     setTab("overview");
     setTimeout(() => document.getElementById("ai-insights")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
@@ -73,7 +64,7 @@ export default function Page() {
     <div className="min-h-screen">
       <Header
         fileName={parsed.fileName}
-        unitCount={unitCount}
+        unitCount={df.length}
         source={schema.source}
         tabs={tabs}
         activeTab={current}
@@ -82,33 +73,23 @@ export default function Page() {
         onAnalyze={onAnalyze}
         refining={schemaRefining}
       />
-      {allLocations.length > 0 && (
+      {filterBar.length > 0 && (
         <div className="border-b border-line bg-ground/60">
           <div className="mx-auto max-w-7xl px-5">
-            <LocationBar locations={allLocations} />
+            <LocationBar locations={filterBar} />
           </div>
         </div>
       )}
       <main className="mx-auto max-w-7xl px-5 py-6">
-        {activeCat ? (
-          <CategoryTab
-            category={activeCat}
-            units={units}
-            sales={salesSummary}
-            scoring={scoring}
-            metrics={metrics}
-            entities={entities}
-            schema={schema}
-            parsed={parsed}
-          />
-        ) : (
+        {current === "overview" && (
           <div className="space-y-8 fade-up">
-            {units.length ? <OverviewGrid units={units} allLocations={allLocations} /> : <EmptyState title="No unit rows for this filter" />}
-            <div id="ai-insights">
-              <InsightsTab scoring={scoring} units={units} sales={salesSummary} />
-            </div>
+            {dfFiltered.length ? <OverviewGrid units={dfFiltered} allLocations={overviewSnapshot} /> : <EmptyState title="No units for this filter" />}
+            <div id="ai-insights"><InsightsTab scoring={scoring} units={dfFiltered} sales={salesSummary} /></div>
           </div>
         )}
+        {current === "workstage" && <WorkStageView units={dfFiltered} scoring={scoring} />}
+        {current === "sales" && (salesSummary ? <SalesTeam summary={salesSummary} /> : <EmptyState title="No sales data" />)}
+        {current === "octane" && <OctaneView units={octaneFiltered} />}
       </main>
     </div>
   );

@@ -74,6 +74,9 @@ const ACT_NOW = 60;
 const HIGH = 30;
 const MEDIUM = 15;
 
+/** Minimum score for each tier — exposed so the legend stays in sync. */
+export const TIER_MIN: Record<"act_now" | "high" | "medium", number> = { act_now: ACT_NOW, high: HIGH, medium: MEDIUM };
+
 function tierOf(score: number): PriorityTier {
   if (score >= ACT_NOW) return "act_now";
   if (score >= HIGH) return "high";
