@@ -13,8 +13,10 @@
 }
 html, body {
   background: var(--ground); color: var(--ink);
-  font-family: var(--font-mono), ui-monospace, monospace;
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px; line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 .top-rule { height: 2px; background: var(--brand, #ff2b2b); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }

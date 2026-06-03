@@ -22,11 +22,10 @@ const config: Config = {
         govt: "#b07cff",
       },
       fontFamily: {
-        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        // Primary UI font — clean, modern, accessible (replaces the terminal mono).
+        sans: ["var(--font-sans)", "Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
         // Big stat numerals only (heavy condensed display face).
-        display: ["var(--font-display)", "Saira Condensed", "Oswald", "var(--font-mono)", "sans-serif"],
-        // Proportional sans for table DATA values (names, types, reps).
-        sans: ["system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+        display: ["var(--font-display)", "Saira Condensed", "Oswald", "Inter", "sans-serif"],
       },
       boxShadow: { card: "0 1px 0 0 rgba(255,255,255,0.02) inset, 0 8px 24px -16px rgba(0,0,0,0.8)" },
       borderRadius: { card: "6px" },

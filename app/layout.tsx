@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Anton } from "next/font/google";
+import { Inter, Anton } from "next/font/google";
 import { DashboardProvider } from "@/components/DashboardProvider";
 import { ProBridge } from "@/components/ProBridge";
 import "./globals.css";
 
-const mono = IBM_Plex_Mono({
+// Clean, modern, highly legible UI font (replaces the terminal monospace).
+const sans = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-mono",
+  variable: "--font-sans",
   display: "swap",
 });
 
-// Heavy condensed display face — big stat numerals ONLY (per the design system).
+// Heavy display face for big stat numerals only.
 const display = Anton({
   subsets: ["latin"],
   weight: "400",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" className={`${mono.variable} ${display.variable}`}>
+    <html lang="en" data-theme="dark" className={`${sans.variable} ${display.variable}`}>
       <body>
         <ProBridge />
         <DashboardProvider>{children}</DashboardProvider>
