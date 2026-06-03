@@ -16,6 +16,7 @@ import type {
 import { parseSpreadsheet } from "@/lib/parseFile";
 import { inferSchemaClient } from "@/lib/inferSchemaClient";
 import { heuristicSchema } from "@/lib/profile";
+import { mergeSources } from "@/lib/mergeSources";
 import { detectEntities } from "@/lib/entities";
 import { makeSampleData } from "@/lib/sampleData";
 
@@ -152,13 +153,22 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const loadAutoData = useCallback(async () => {
     dispatch({ type: "PARSING" });
     try {
-      const res = await fetch("/CuratedFields-TEST.xlsx");
-      if (!res.ok) throw new Error(`Could not load bundled data (${res.status}).`);
-      const blob = await res.blob();
-      const file = new File([blob], "CuratedFields-TEST.xlsx", {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const parsed = await parseSpreadsheet(file);
+      // Combine the two exports so the operator never merges spreadsheets by hand:
+      // CURATEDV2 = rich per-unit inventory; CuratedFields-TEST = email/staff/
+      // round-robin rows + a few extra unit fields. They join on Record UUID.
+      const fetchSheet = async (url: string, name: string) => {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Could not load ${name} (${res.status}).`);
+        const blob = await res.blob();
+        return parseSpreadsheet(new File([blob], name, {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }));
+      };
+      const [v2, v1] = await Promise.all([
+        fetchSheet("/CURATEDV2-TESTING.xlsx", "CURATEDV2-TESTING.xlsx"),
+        fetchSheet("/CuratedFields-TEST.xlsx", "CuratedFields-TEST.xlsx"),
+      ]);
+      const parsed = mergeSources(v2, v1);
       const entities = detectEntities(parsed);
       const overridesFor = (s: SchemaProfile) => ({
         vetoedColumns: s.columns.filter((c) => c.trust === "deprecated" || c.trust === "duplicate").map((c) => c.name),

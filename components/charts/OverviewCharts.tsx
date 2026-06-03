@@ -12,14 +12,13 @@ import {
   Cell,
   type TooltipProps,
 } from "recharts";
-import type { UnitRecord, WorkBucket, SaleBucket } from "@/lib/types";
-import { WORK_LABEL, WORK_HEX, SALE_LABEL, SALE_HEX } from "@/lib/buckets";
+import type { UnitRecord, SaleBucket } from "@/lib/types";
+import { SALE_LABEL, SALE_HEX } from "@/lib/buckets";
 import { fmt } from "@/lib/format";
 
 const AXIS = "#9a9aa0";
 const GRID = "#2a2a2e";
 
-const WORK_ORDER: WorkBucket[] = ["needs_diagnosis", "working", "ready", "on_rent", "sold"];
 const SALE_ORDER: SaleBucket[] = ["paid_in_full", "down_payment", "govt_po", "rental", "other"];
 
 function ChartTip({ active, payload, label }: TooltipProps<number, string>) {
@@ -51,16 +50,6 @@ function Panel({ title, hint, children }: { title: string; hint?: string; childr
 }
 
 export function OverviewCharts({ units }: { units: UnitRecord[] }) {
-  const workData = useMemo(() => {
-    const counts = new Map<WorkBucket, number>();
-    for (const u of units) counts.set(u.work, (counts.get(u.work) ?? 0) + 1);
-    return WORK_ORDER.filter((b) => (counts.get(b) ?? 0) > 0).map((b) => ({
-      name: WORK_LABEL[b],
-      count: counts.get(b) ?? 0,
-      fill: WORK_HEX[b],
-    }));
-  }, [units]);
-
   const saleData = useMemo(() => {
     const counts = new Map<SaleBucket, number>();
     for (const u of units) if (u.sale !== "unknown") counts.set(u.sale, (counts.get(u.sale) ?? 0) + 1);
@@ -77,33 +66,14 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
     return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count }));
   }, [units]);
 
-  const hasWork = workData.length > 0;
   const hasSale = saleData.length > 0;
   const hasBrand = brandData.length > 0;
-  if (!hasWork && !hasSale && !hasBrand) return null;
+  if (!hasSale && !hasBrand) return null;
 
   return (
     <section className="space-y-3">
       <p className="eyebrow">Charts</p>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {hasWork && (
-          <Panel title="Work-Stage Mix" hint="units per stage">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={workData} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 8 }}>
-                <CartesianGrid horizontal={false} stroke={GRID} />
-                <XAxis type="number" stroke={AXIS} fontSize={11} allowDecimals={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" stroke={AXIS} fontSize={11} width={92} tickLine={false} axisLine={false} />
-                <Tooltip content={<ChartTip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                <Bar dataKey="count" name="Units" radius={[0, 2, 2, 0]} isAnimationActive={false}>
-                  {workData.map((d) => (
-                    <Cell key={d.name} fill={d.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Panel>
-        )}
-
         {hasSale && (
           <Panel title="Sales by Payment Type" hint="committed units">
             <ResponsiveContainer width="100%" height="100%">

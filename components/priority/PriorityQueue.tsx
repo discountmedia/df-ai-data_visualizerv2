@@ -1,18 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { ScoringResult, ScoredUnit, PriorityTier } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import type { ScoringResult, ScoredUnit, PriorityTier, UnitRecord } from "@/lib/types";
 import { cn, fmt, fmtMoney } from "@/lib/format";
 import { WorkPill, SalePill, TierPill } from "@/components/ui/Pills";
 import { TIER_LABEL } from "@/lib/buckets";
 import { EmptyState } from "@/components/states/States";
 
 const TIERS: PriorityTier[] = ["act_now", "high", "medium", "low"];
-const CAP = 200;
+const PAGE = 25;
+
+/** Everything a unit can be matched on in the search box. */
+function unitHaystack(u: UnitRecord): string {
+  return [u.forkliftName, u.name, u.serial, u.serial4, u.make, u.model, u.type, u.year, u.fuel, u.customer, u.location, u.soldBy]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
 
 export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
   const [tier, setTier] = useState<PriorityTier | "ALL">("ALL");
   const [open, setOpen] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
 
   const rankOf = useMemo(() => {
     const m = new Map<ScoredUnit, number>();
@@ -20,10 +30,15 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
     return m;
   }, [scoring.ranked]);
 
-  const rows = useMemo(
-    () => (tier === "ALL" ? scoring.ranked : scoring.ranked.filter((r) => r.tier === tier)),
-    [scoring.ranked, tier]
-  );
+  const rows = useMemo(() => {
+    let rs = tier === "ALL" ? scoring.ranked : scoring.ranked.filter((r) => r.tier === tier);
+    const needle = q.trim().toLowerCase();
+    if (needle) rs = rs.filter((s) => unitHaystack(s.unit).includes(needle));
+    return rs;
+  }, [scoring.ranked, tier, q]);
+
+  // Snap back to page 1 whenever the result set changes underfoot.
+  useEffect(() => setPage(0), [tier, q]);
 
   if (scoring.ranked.length === 0) {
     return (
@@ -34,7 +49,10 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
     );
   }
 
-  const shown = rows.slice(0, CAP);
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE));
+  const clampedPage = Math.min(page, pageCount - 1);
+  const start = clampedPage * PAGE;
+  const shown = rows.slice(start, start + PAGE);
 
   return (
     <div className="space-y-5 fade-up">
@@ -56,39 +74,70 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-1">
-        <FilterChip active={tier === "ALL"} onClick={() => setTier("ALL")}>All ({fmt(scoring.scoredCount)})</FilterChip>
-        {TIERS.map((t) => (
-          <FilterChip key={t} active={tier === t} onClick={() => setTier(t)}>
-            {TIER_LABEL[t]} ({fmt(scoring.tierCounts[t])})
-          </FilterChip>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1">
+          <FilterChip active={tier === "ALL"} onClick={() => setTier("ALL")}>All ({fmt(scoring.scoredCount)})</FilterChip>
+          {TIERS.map((t) => (
+            <FilterChip key={t} active={tier === t} onClick={() => setTier(t)}>
+              {TIER_LABEL[t]} ({fmt(scoring.tierCounts[t])})
+            </FilterChip>
+          ))}
+        </div>
+        <div className="relative ml-auto w-full sm:w-64">
+          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search name, serial, make, customer…"
+            className="w-full border border-line bg-panel-2/60 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
+          />
+          {q && (
+            <button
+              onClick={() => setQ("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-faint hover:text-ink"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <p className="eyebrow">Act-Now Queue — Ranked</p>
-          <p className="text-[11px] text-ink-faint">click a unit for its score breakdown</p>
+          <p className="text-[11px] text-ink-faint">click a unit for its score breakdown & specs</p>
         </div>
-        <div className="divide-y divide-line/50">
-          {shown.map((s) => {
-            // rowIndex is unique per base row; unit.id (serial/name) is not.
-            const oid = String(s.unit.rowIndex);
-            return (
-              <PriorityRow
-                key={oid}
-                rank={rankOf.get(s) ?? 0}
-                scored={s}
-                open={open === oid}
-                onToggle={() => setOpen(open === oid ? null : oid)}
-              />
-            );
-          })}
-        </div>
-        {rows.length > CAP && (
-          <p className="px-4 py-3 text-center text-[11px] text-ink-faint">
-            Showing the top {CAP} of {fmt(rows.length)} — narrow by tier to see more.
+        {shown.length === 0 ? (
+          <p className="px-4 py-8 text-center text-[12px] text-ink-faint">
+            No units match {q ? <span className="text-ink">“{q}”</span> : "this filter"}.
           </p>
+        ) : (
+          <div className="divide-y divide-line/50">
+            {shown.map((s) => {
+              // rowIndex is unique per base row; unit.id (serial/name) is not.
+              const oid = String(s.unit.rowIndex);
+              return (
+                <PriorityRow
+                  key={oid}
+                  rank={rankOf.get(s) ?? 0}
+                  scored={s}
+                  open={open === oid}
+                  onToggle={() => setOpen(open === oid ? null : oid)}
+                />
+              );
+            })}
+          </div>
+        )}
+        {rows.length > 0 && (
+          <Pager
+            page={clampedPage}
+            pageCount={pageCount}
+            start={start}
+            shown={shown.length}
+            total={rows.length}
+            onPage={setPage}
+          />
         )}
       </section>
     </div>
@@ -98,9 +147,10 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
 function PriorityRow({ rank, scored, open, onToggle }:
   { rank: number; scored: ScoredUnit; open: boolean; onToggle: () => void }) {
   const u = scored.unit;
-  const desc = [u.make, u.model, u.type].filter(Boolean).join(" · ");
-  // Lead with the unit's given name (e.g. "Bella") when present.
-  const title = u.name ? (desc ? `${u.name} · ${desc}` : u.name) : desc || "Unit";
+  // Lead with the forklift's given name, then year · make · type.
+  const name = u.forkliftName ?? u.name;
+  const spec = [u.year, u.make, u.type].filter(Boolean).join(" ");
+  const title = name ? (spec ? `${name} · ${spec}` : name) : spec || "Unit";
   const rawSum = scored.factors.reduce((s, f) => s + f.points, 0);
   return (
     <div className={cn("cursor-pointer px-4 py-3 hover:bg-panel-2", open && "bg-panel-2")} onClick={onToggle}>
@@ -154,7 +204,9 @@ function PriorityRow({ rank, scored, open, onToggle }:
             </div>
             <div className="text-[11px] text-ink-dim">
               <p className="eyebrow mb-2">Unit</p>
-              <Detail k="Serial" v={u.serial} />
+              <Detail k="Serial (last 4)" v={u.serial4 ?? u.serial} />
+              <Detail k="Year" v={u.year} />
+              <Detail k="Fuel" v={u.fuel} />
               <Detail k="Location" v={u.location} />
               <Detail k="Customer" v={u.customer} />
               <Detail k="Sold by" v={u.soldBy} />
@@ -162,9 +214,90 @@ function PriorityRow({ rank, scored, open, onToggle }:
               <Detail k="Signed" v={u.committed ? (u.signed ? "Yes" : "No") : null} />
             </div>
           </div>
+          <UnitSpecsPanel u={u} />
         </div>
       )}
     </div>
+  );
+}
+
+function UnitSpecsPanel({ u }: { u: UnitRecord }) {
+  const s = u.specs;
+  const measures = [
+    { k: "Hours", v: s.hours },
+    { k: "Capacity (lbs)", v: u.capacity != null ? u.capacity.toLocaleString() : null },
+    { k: "Mast", v: s.mast },
+    { k: "Fork length", v: s.forkLength },
+    { k: "Lowered height", v: s.loweredHeight },
+    { k: "Raised / max fork", v: s.raisedHeight },
+    { k: "Tires / drive", v: s.tires },
+    { k: "Attachments", v: s.attachments },
+    { k: "Warehouse", v: s.warehouse },
+  ].filter((m) => m.v);
+  const links = [
+    { k: "Product page", href: s.productUrl },
+    { k: "Walk-around video", href: s.youtubeUrl },
+  ].filter((l) => l.href && /^https?:\/\//i.test(l.href));
+
+  if (measures.length === 0 && links.length === 0) return null;
+
+  return (
+    <div className="mt-3 border-t border-line/50 pt-3">
+      <p className="eyebrow mb-2">Specs &amp; media</p>
+      {measures.length > 0 && (
+        <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-3">
+          {measures.map((m) => (
+            <div key={m.k} className="flex items-baseline justify-between gap-2 border-b border-line/30 py-1 text-[11px]">
+              <span className="shrink-0 text-ink-faint">{m.k}</span>
+              <span className="truncate text-right text-ink-dim" title={m.v!}>{m.v}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {links.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {links.map((l) => (
+            <a
+              key={l.k}
+              href={l.href!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 border border-line px-2.5 py-1 text-[11px] text-brand transition-colors hover:border-brand"
+            >
+              {l.k} ↗
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Pager({ page, pageCount, start, shown, total, onPage }:
+  { page: number; pageCount: number; start: number; shown: number; total: number; onPage: (n: number) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-line/50 px-4 py-3">
+      <p className="text-[11px] text-ink-faint">
+        {total === 0 ? "0" : `${(start + 1).toLocaleString()}–${(start + shown).toLocaleString()}`} of {total.toLocaleString()}
+      </p>
+      <div className="flex items-center gap-1">
+        <PageBtn disabled={page === 0} onClick={() => onPage(page - 1)}>‹ Prev</PageBtn>
+        <span className="px-2 text-[11px] tabular-nums text-ink-dim">Page {page + 1} / {pageCount}</span>
+        <PageBtn disabled={page >= pageCount - 1} onClick={() => onPage(page + 1)}>Next ›</PageBtn>
+      </div>
+    </div>
+  );
+}
+
+function PageBtn({ disabled, onClick, children }: { disabled: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="border border-line px-2.5 py-1 text-[11px] uppercase tracking-wider text-ink-dim transition-colors enabled:hover:border-brand enabled:hover:text-ink disabled:opacity-30"
+    >
+      {children}
+    </button>
   );
 }
 

@@ -179,15 +179,39 @@ export interface SalesSummary {
  * Feeds the All-Units table and the priority scorer.
  * ------------------------------------------------------------------------- */
 
+/**
+ * Display-only spec sheet shown in a unit's accordion drawer. Every field is
+ * resolved from the broker/measurement export columns (never hardcoded) and is
+ * null when that column is absent or empty.
+ */
+export interface UnitSpecs {
+  hours: string | null;
+  forkLength: string | null;
+  mast: string | null;
+  tires: string | null;
+  loweredHeight: string | null;
+  raisedHeight: string | null;
+  warehouse: string | null;
+  attachments: string | null;
+  productUrl: string | null;
+  youtubeUrl: string | null;
+}
+
 export interface UnitRecord {
   /** Stable key for React + dedupe: serial, else name, else row index. */
   id: string;
   rowIndex: number;
   name: string | null;
+  /** The lift's given name ("Forklift Name", e.g. "Lula"). */
+  forkliftName: string | null;
   serial: string | null;
+  /** Last-4 of the serial ("Serial 4") — shown in place of the full serial. */
+  serial4: string | null;
   make: string | null;
   model: string | null;
   type: string | null;
+  year: string | null;
+  fuel: string | null;
   location: string | null;
   capacity: number | null;
   work: WorkBucket;
@@ -200,6 +224,8 @@ export interface UnitRecord {
   soldBy: string | null;
   price: number | null;
   customer: string | null;
+  /** Broker/measurement spec sheet for the accordion drawer. */
+  specs: UnitSpecs;
 }
 
 /* ----------------------------------------------------------------------------

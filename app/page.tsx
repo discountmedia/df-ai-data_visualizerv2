@@ -38,6 +38,9 @@ export default function Page() {
   const dfFiltered = useMemo(() => byLoc(df), [df, locationFilter]);
   const octaneFiltered = useMemo(() => byLoc(octane), [octane, locationFilter]);
   const scoring = useMemo(() => scoreUnits(dfFiltered), [dfFiltered]);
+  // Unfiltered totals for the tab badges — keeps them from changing width (jumping)
+  // every time you click a location.
+  const scoringAll = useMemo(() => scoreUnits(df), [df]);
   const filterBar = useMemo(() => bucketedLocations(df), [df]);
   const overviewSnapshot = useMemo(() => bucketedLocations(dfFiltered), [dfFiltered]);
 
@@ -50,11 +53,14 @@ export default function Page() {
 
   const current = activeTab || "overview";
   const tabs = [
-    { id: "overview", label: "Overview", count: dfFiltered.length },
-    { id: "workstage", label: "Work Stage", count: scoring.scoredCount },
+    { id: "overview", label: "Overview", count: df.length },
+    { id: "workstage", label: "Work Stage", count: scoringAll.scoredCount },
     { id: "sales", label: "Sales Team", count: salesSummary ? salesSummary.totalSold : null },
     { id: "octane", label: "OCTANE", count: octane.length },
   ];
+  // Location filter applies to every tab except Sales Team (rep totals are
+  // company-wide), so hide the bar there rather than leave a dead control.
+  const showLocationBar = filterBar.length > 0 && current !== "sales";
   const onAnalyze = () => {
     setTab("overview");
     setTimeout(() => document.getElementById("ai-insights")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
@@ -73,7 +79,7 @@ export default function Page() {
         onAnalyze={onAnalyze}
         refining={schemaRefining}
       />
-      {filterBar.length > 0 && (
+      {showLocationBar && (
         <div className="border-b border-line bg-ground/60">
           <div className="mx-auto max-w-7xl px-5">
             <LocationBar locations={filterBar} />

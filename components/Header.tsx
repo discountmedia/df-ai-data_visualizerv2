@@ -100,7 +100,9 @@ export function Header({
               >
                 {t.label}
                 {t.count != null && (
-                  <span className={cn("tabular-nums", active ? "text-brand" : "text-ink-faint")}>{t.count}</span>
+                  <span className={cn("tabular-nums", active ? "text-brand" : "text-ink-faint")}>
+                    {t.count.toLocaleString()}
+                  </span>
                 )}
               </button>
             );

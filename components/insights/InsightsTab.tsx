@@ -19,10 +19,12 @@ export function InsightsTab({ scoring, units, sales }:
   { scoring: ScoringResult; units: UnitRecord[]; sales: SalesSummary | null }) {
   const input = useMemo(() => buildInsightsInput(scoring, units, sales), [scoring, units, sales]);
   const [result, setResult] = useState<InsightsResult | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  // Opt-in: nothing is sent to any model until the operator clicks Run (nonce > 0).
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
+    if (nonce === 0) return;
     let cancelled = false;
     setLoading(true);
     fetchInsights(input).then((r) => {
@@ -34,7 +36,9 @@ export function InsightsTab({ scoring, units, sales }:
     return () => {
       cancelled = true;
     };
-  }, [input, nonce]);
+    // Re-runs only on explicit Run/Regenerate — never automatically on filter change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nonce]);
 
   return (
     <div className="space-y-5 fade-up">
@@ -56,16 +60,27 @@ export function InsightsTab({ scoring, units, sales }:
             <button
               onClick={() => setNonce((n) => n + 1)}
               disabled={loading}
-              className="border border-line px-3 py-1 text-[11px] uppercase tracking-wider text-ink-dim hover:border-brand hover:text-ink disabled:opacity-40"
+              className={cn(
+                "px-3 py-1 text-[11px] uppercase tracking-wider transition-opacity disabled:opacity-40",
+                nonce === 0
+                  ? "bg-brand font-bold text-white hover:opacity-90"
+                  : "border border-line text-ink-dim hover:border-brand hover:text-ink"
+              )}
             >
-              {loading ? "Reading…" : "Regenerate"}
+              {loading ? "Reading…" : nonce === 0 ? "⚡ Run AI Analysis" : "Regenerate"}
             </button>
           </div>
         </div>
 
         {loading && !result ? (
           <p className="mt-3 text-sm text-ink-faint">Reading the fleet…</p>
-        ) : result ? (
+        ) : !result ? (
+          <p className="mt-3 text-sm leading-relaxed text-ink-faint">
+            AI analysis is <span className="text-ink">off by default</span>. Click{" "}
+            <span className="text-brand">Run AI Analysis</span> to have Claude, Grok &amp; GPT read this fleet
+            and surface what needs attention. Nothing is sent to any model until you ask.
+          </p>
+        ) : (
           (() => {
             const reads = [
               { key: "claude", label: "Claude", sub: "primary read", accent: "ready" as const, summary: result.summary, insights: result.insights, note: result.note },
@@ -95,7 +110,7 @@ export function InsightsTab({ scoring, units, sales }:
               </>
             );
           })()
-        ) : null}
+        )}
       </section>
 
       {/* Deterministic methodology */}

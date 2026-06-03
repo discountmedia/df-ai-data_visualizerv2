@@ -42,6 +42,10 @@ export function deriveUnits(
   const makeCol = findColumn(cols, [/^make$/i, /manufacturer/i]);
   const modelCol = findColumn(cols, [/check\s*in\s*model/i, /^model$/i]);
   const typeCol = findColumn(cols, [/^type$/i, /category/i]);
+  const forkliftNameCol = findColumn(cols, [/forklift\s*name/i]);
+  const serial4Col = findColumn(cols, [/serial\s*4/i, /last\s*4/i]);
+  const yearCol = findColumn(cols, [/^year$/i]);
+  const fuelCol = findColumn(cols, [/^fuel\s*type$/i, /types?\s*of\s*electric/i, /invoice\s*fuel/i]);
   // Require the lbs token to be co-located with a capacity-ish word so we don't
   // bind to an unrelated "...lbs" column (e.g. "Total lbs shipped").
   const capCol = findColumn(cols, [
@@ -55,6 +59,18 @@ export function deriveUnits(
     /sold\s*price/i,
   ]);
   const customerCol = findColumn(cols, [/^sold\s*to$/i, /sold\s*to(?!6)/i, /customer/i]);
+
+  // Broker/measurement spec columns for the accordion drawer (display only).
+  const hoursCol = findColumn(cols, [/^hours$/i]);
+  const forkLengthCol = findColumn(cols, [/fork\s*length/i]);
+  const mastCol = findColumn(cols, [/^mast$/i]);
+  const tiresCol = findColumn(cols, [/^tires?$/i]);
+  const loweredCol = findColumn(cols, [/lowered\s*height/i, /broker\s*lowered/i]);
+  const raisedCol = findColumn(cols, [/raised\s*height/i, /broker\s*raise/i]);
+  const warehouseCol = findColumn(cols, [/^warehouse$/i]);
+  const attachCol = findColumn(cols, [/broker\s*attachments/i, /^attachments$/i]);
+  const productUrlCol = findColumn(cols, [/product\s*server\s*url/i, /product.*url/i]);
+  const youtubeCol = findColumn(cols, [/youtubeurl/i, /youtube\s*video/i, /youtube/i]);
 
   // Curated recon checkpoints — work stage is spread across these (the recon
   // pipeline), NOT a single status column. When present they drive the work
@@ -106,10 +122,14 @@ export function deriveUnits(
       id: serial ?? name ?? `row-${i}`,
       rowIndex: i,
       name,
+      forkliftName: cell(forkliftNameCol, r),
       serial,
+      serial4: cell(serial4Col, r),
       make: cell(makeCol, r),
       model: cell(modelCol, r),
       type: cell(typeCol, r),
+      year: cell(yearCol, r),
+      fuel: cell(fuelCol, r),
       location: cell(locCol, r),
       capacity: capCol ? toNum(r[capCol]) : null,
       work,
@@ -121,6 +141,18 @@ export function deriveUnits(
       soldBy: cell(soldByCol, r),
       price: priceCol ? toNum(r[priceCol]) : null,
       customer: cell(customerCol, r),
+      specs: {
+        hours: cell(hoursCol, r),
+        forkLength: cell(forkLengthCol, r),
+        mast: cell(mastCol, r),
+        tires: cell(tiresCol, r),
+        loweredHeight: cell(loweredCol, r),
+        raisedHeight: cell(raisedCol, r),
+        warehouse: cell(warehouseCol, r),
+        attachments: cell(attachCol, r),
+        productUrl: cell(productUrlCol, r),
+        youtubeUrl: cell(youtubeCol, r),
+      },
     };
   });
 }

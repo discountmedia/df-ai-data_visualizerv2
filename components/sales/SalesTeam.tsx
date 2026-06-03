@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { SalesSummary, SalesRep, SoldUnit } from "@/lib/types";
+import { useMemo, useState } from "react";
+import type { SalesSummary, SalesRep, SoldUnit, SaleBucket } from "@/lib/types";
 import { cn, fmt, fmtMoney } from "@/lib/format";
 import { EmptyState } from "../states/States";
 
@@ -35,9 +35,18 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
   const activeReps = summary.reps.filter((r) => r.unitsSold > 0).length;
   const totalSaleVal = summary.reps.reduce((s, r) => s + (r.totalSale ?? 0), 0);
   const avgSale = summary.totalSold > 0 ? Math.round(totalSaleVal / summary.totalSold) : null;
+  const allSold = useMemo(() => Object.values(summary.soldUnitsByRep).flat(), [summary.soldUnitsByRep]);
 
   return (
     <div className="space-y-5 fade-up">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <p className="eyebrow text-brand">Sales Team</p>
+          <h1 className="mt-1 text-xl font-bold text-ink">Who&apos;s closing — and what&apos;s still open</h1>
+        </div>
+        <span className="text-[11px] text-ink-faint">company-wide · not filtered by yard</span>
+      </div>
+
       {/* Cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <Card label="Total Sold" value={fmt(summary.totalSold)} accent="text-diag" sub="Attributed units" />
@@ -51,6 +60,12 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
           accent="text-rent"
           sub={summary.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
         />
+      </div>
+
+      {/* Engaging visuals */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="lg:col-span-2"><SalesRace reps={summary.reps} /></div>
+        <DealHealth units={allSold} />
       </div>
 
       {/* Leaderboard */}
@@ -119,6 +134,106 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
 
 function num(v: number | null): number {
   return v ?? 0;
+}
+
+const MEDAL = ["🥇", "🥈", "🥉"];
+
+/** A horizontal "race" of the top reps by units sold — the page's hero visual. */
+function SalesRace({ reps }: { reps: SalesRep[] }) {
+  const ranked = [...reps].filter((r) => r.unitsSold > 0).sort((a, b) => b.unitsSold - a.unitsSold).slice(0, 10);
+  const max = ranked[0]?.unitsSold ?? 1;
+  if (ranked.length === 0) {
+    return (
+      <section className="card p-4">
+        <p className="eyebrow">Sales Race</p>
+        <p className="mt-3 text-[11px] text-ink-faint">No attributed units to race yet.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="card p-4">
+      <div className="flex items-baseline justify-between">
+        <p className="eyebrow">Sales Race — Units Sold</p>
+        <span className="text-[10px] text-ink-faint">top {ranked.length} reps</span>
+      </div>
+      <div className="mt-3 space-y-2">
+        {ranked.map((r, i) => (
+          <div key={r.name} className="flex items-center gap-2">
+            <span className="w-6 shrink-0 text-center text-sm">
+              {i < 3 ? MEDAL[i] : <span className="text-[11px] tabular-nums text-ink-faint">{i + 1}</span>}
+            </span>
+            <span className="w-24 shrink-0 truncate text-xs text-ink-dim sm:w-36" title={r.name}>{r.name}</span>
+            <div className="relative h-5 flex-1 overflow-hidden rounded-sm bg-panel-2">
+              <div
+                className={cn("h-full rounded-sm transition-[width] duration-700", i === 0 ? "bg-brand" : "bg-rent")}
+                style={{ width: `${(r.unitsSold / max) * 100}%`, opacity: i === 0 ? 1 : 0.8 }}
+              />
+            </div>
+            <span className="w-9 shrink-0 text-right font-display text-base leading-none tabular-nums text-ink">{r.unitsSold}</span>
+            <span className="hidden w-20 shrink-0 text-right text-[11px] tabular-nums text-pif sm:inline">{fmtMoney(r.totalSale)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const PAY: { key: SaleBucket; label: string; cls: string }[] = [
+  { key: "paid_in_full", label: "Paid in full", cls: "bg-pif" },
+  { key: "down_payment", label: "Down pmt", cls: "bg-downpmt" },
+  { key: "govt_po", label: "Govt PO", cls: "bg-govt" },
+  { key: "other", label: "Other", cls: "bg-ink-faint" },
+];
+
+/** Signature rate + payment mix — "how healthy is the close." */
+function DealHealth({ units }: { units: SoldUnit[] }) {
+  const total = units.length;
+  const signed = units.filter((u) => u.signed).length;
+  const signRate = total ? Math.round((signed / total) * 100) : 0;
+  const counts = new Map<SaleBucket, number>();
+  for (const u of units) counts.set(u.saleType, (counts.get(u.saleType) ?? 0) + 1);
+  const payTotal = PAY.reduce((s, p) => s + (counts.get(p.key) ?? 0), 0) || 1;
+
+  return (
+    <section className="card p-4">
+      <p className="eyebrow">Deal Close Health</p>
+
+      <div className="mt-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[11px] text-ink-dim">Signature rate</span>
+          <span className="font-display text-2xl leading-none tabular-nums text-ready">{signRate}%</span>
+        </div>
+        <div className="mt-1.5 h-2 overflow-hidden rounded-sm bg-panel-2">
+          <div className="h-full bg-ready transition-[width] duration-700" style={{ width: `${signRate}%` }} />
+        </div>
+        <p className="mt-1 text-[10px] text-ink-faint">{fmt(signed)} of {fmt(total)} attributed deals signed</p>
+      </div>
+
+      <div className="mt-4">
+        <p className="mb-1.5 text-[11px] text-ink-dim">Payment mix</p>
+        <div className="flex h-2.5 overflow-hidden rounded-sm bg-panel-2">
+          {PAY.map((p) => {
+            const v = counts.get(p.key) ?? 0;
+            if (!v) return null;
+            return <div key={p.key} className={p.cls} style={{ width: `${(v / payTotal) * 100}%` }} title={`${p.label}: ${v}`} />;
+          })}
+        </div>
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+          {PAY.map((p) => {
+            const v = counts.get(p.key) ?? 0;
+            if (!v) return null;
+            return (
+              <span key={p.key} className="flex items-center gap-1 text-[10px]">
+                <span className={cn("inline-block h-2 w-2 rounded-sm", p.cls)} />
+                <span className="text-ink-dim">{p.label}</span>
+                <span className="tabular-nums text-ink-faint">{v}</span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Card({ label, value, accent, sub }: { label: string; value: string; accent: string; sub: string }) {

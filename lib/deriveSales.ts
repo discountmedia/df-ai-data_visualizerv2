@@ -19,6 +19,9 @@ function cleanName(v: CellValue): { name: string; repId: string | null } | null 
   if (v === null) return null;
   const s = String(v).trim();
   if (!s) return null;
+  // The export writes literal "undefined"/"null"/"N/A" for unattributed rows —
+  // never let those become a phantom rep that tops the leaderboard.
+  if (/^(undefined|null|n\/?a|none|unknown|-+)$/i.test(s)) return null;
   const m = s.match(/^(.*?)\s+(\d{2,})\s*$/);
   if (m) return { name: m[1].trim(), repId: m[2] };
   return { name: s, repId: null };
