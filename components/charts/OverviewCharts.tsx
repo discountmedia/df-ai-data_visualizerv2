@@ -106,7 +106,7 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
               <BarChart data={brandData} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 8 }}>
                 <CartesianGrid horizontal={false} stroke={GRID} />
                 <XAxis type="number" stroke={AXIS} fontSize={11} allowDecimals={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" stroke={AXIS} fontSize={11} width={92} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" stroke={AXIS} fontSize={11} width={96} tickLine={false} axisLine={false} interval={0} />
                 <Tooltip content={<ChartTip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
                 <Bar dataKey="count" name="Units" radius={[0, 2, 2, 0]} fill="#3aa0ff" isAnimationActive={false} />
               </BarChart>

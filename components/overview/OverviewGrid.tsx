@@ -9,6 +9,7 @@ import { OverviewCharts } from "../charts/OverviewCharts";
 import { EmptyState } from "../states/States";
 import { DistributionBar } from "../viz/DistributionBar";
 import { fmt } from "@/lib/format";
+import { locationBucket } from "@/lib/location";
 import type { LocationSnapshot, UnitRecord, WorkBucket, SaleBucket } from "@/lib/types";
 
 /**
@@ -27,6 +28,9 @@ export function OverviewGrid({ units, allLocations }: { units: UnitRecord[]; all
   const byWork = (w: WorkBucket) => units.filter((u) => u.work === w);
   const bySale = (s: SaleBucket) => units.filter((u) => u.sale === s);
   const openWorkUnits = units.filter((u) => u.committed && (u.work === "working" || u.work === "needs_diagnosis"));
+  // "Needs Diagnosis" is the act-first recon metric — only the 4 main yards run
+  // recon, so exclude "Other"-location lifts from this card (and its drill-down).
+  const needsDiagMain = units.filter((u) => u.work === "needs_diagnosis" && locationBucket(u.location) !== "Other");
 
   return (
     <>
@@ -42,7 +46,7 @@ export function OverviewGrid({ units, allLocations }: { units: UnitRecord[]; all
           <MetricCard label="Total Fleet" metric={m.totalFleet} accent="ink" subtext="Every unit" onClick={open("Total Fleet", units)} />
           <MetricCard label="Ready to Sell" metric={m.ready} accent="ready" subtext="Fully prepped" onClick={open("Ready to Sell", byWork("ready"))} />
           <MetricCard label="Being Worked On" metric={m.working} accent="working" subtext="Service / body" onClick={open("Being Worked On", byWork("working"))} />
-          <MetricCard label="Needs Diagnosis" metric={m.needsDiagnosis} accent="diag" subtext="Act first" onClick={open("Needs Diagnosis", byWork("needs_diagnosis"))} />
+          <MetricCard label="Needs Diagnosis" metric={needsDiagMain.length} accent="diag" subtext="Act first · 4 main yards" onClick={open("Needs Diagnosis", needsDiagMain)} />
           <MetricCard label="On Rent" metric={m.onRent} accent="rent" subtext="Generating income" onClick={open("On Rent", byWork("on_rent"))} />
           <MetricCard label="Sold" metric={m.sold} accent="diag" subtext="Closed deals" onClick={open("Sold", byWork("sold"))} />
         </div>
