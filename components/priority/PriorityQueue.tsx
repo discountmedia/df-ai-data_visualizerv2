@@ -148,10 +148,11 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
 function PriorityRow({ rank, scored, open, onToggle }:
   { rank: number; scored: ScoredUnit; open: boolean; onToggle: () => void }) {
   const u = scored.unit;
-  // Lead with the forklift's given name, then year · make · type.
-  const name = u.forkliftName ?? u.name;
+  // Lead with the last-4 serial, then the forklift name, then year · make · type
+  // → "#030H Sofia · 2026 LG-Forklift Pneumatic - Sit Down".
+  const lead = [u.serial4 ? `#${u.serial4}` : null, u.forkliftName ?? u.name].filter(Boolean).join(" ");
   const spec = [u.year, u.make, u.type].filter(Boolean).join(" ");
-  const title = name ? (spec ? `${name} · ${spec}` : name) : spec || "Unit";
+  const title = lead ? (spec ? `${lead} · ${spec}` : lead) : spec || "Unit";
   const rawSum = scored.factors.reduce((s, f) => s + f.points, 0);
   return (
     <div className={cn("cursor-pointer px-4 py-3 hover:bg-panel-2", open && "bg-panel-2")} onClick={onToggle}>

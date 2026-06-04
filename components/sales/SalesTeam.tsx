@@ -542,23 +542,33 @@ function LeadSourcesPanel({ summary }: { summary: SalesSummary }) {
 }
 
 function UnsignedPanel({ units }: { units: SoldUnit[] }) {
+  const [page, setPage] = useState(0);
   if (units.length === 0) return null;
+  const pageCount = Math.max(1, Math.ceil(units.length / PAGE));
+  const clampedPage = Math.min(page, pageCount - 1);
+  const start = clampedPage * PAGE;
+  const shown = units.slice(start, start + PAGE);
   return (
-    <section className="card border-working/30 p-4">
-      <p className="eyebrow text-working">Unsigned PandaDocs — Chase These ({units.length})</p>
-      <p className="mt-1 text-[11px] text-ink-faint">Committed deals (down-payment / paid-in-full) with no signature on file. Govt POs and removed units excluded.</p>
-      <div className="mt-3 space-y-1.5">
-        {units.map((u, i) => (
-          <div key={i} className="flex items-center justify-between gap-3 border-b border-line/40 pb-1.5 text-[11px]">
-            <span className="text-ink">{[u.make, u.model, u.type].filter(Boolean).join(" · ") || "Unit"}</span>
-            <span className="flex items-center gap-3">
-              <span className="text-ink-dim">{u.rep}</span>
-              <SalePill raw={u.saleTypeRaw} />
-              <span className="w-16 text-right tabular-nums text-pif">{fmtMoney(u.price)}</span>
-            </span>
-          </div>
-        ))}
+    <section className="card overflow-hidden border-working/30">
+      <div className="p-4">
+        <p className="eyebrow text-working">Unsigned PandaDocs — Chase These ({units.length})</p>
+        <p className="mt-1 text-[11px] text-ink-faint">Committed deals (down-payment / paid-in-full) with no signature on file. Govt POs and removed units excluded.</p>
+        <div className="mt-3 space-y-1.5">
+          {shown.map((u, i) => (
+            <div key={start + i} className="flex items-center justify-between gap-3 border-b border-line/40 pb-1.5 text-[11px]">
+              <span className="text-ink">{[u.make, u.model, u.type].filter(Boolean).join(" · ") || "Unit"}</span>
+              <span className="flex items-center gap-3">
+                <span className="text-ink-dim">{u.rep}</span>
+                <SalePill raw={u.saleTypeRaw} />
+                <span className="w-16 text-right tabular-nums text-pif">{fmtMoney(u.price)}</span>
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
+      {units.length > PAGE && (
+        <Pager page={clampedPage} pageCount={pageCount} start={start} shown={shown.length} total={units.length} onPage={setPage} />
+      )}
     </section>
   );
 }

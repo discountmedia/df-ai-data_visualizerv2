@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { deriveMetrics } from "@/lib/deriveMetrics";
 import { MetricCard } from "./MetricCard";
+import { UnitsDrawer } from "./UnitsDrawer";
 import { AlertBanner } from "../AlertBanner";
 import { OverviewCharts } from "../charts/OverviewCharts";
 import { EmptyState } from "../states/States";
 import { DistributionBar } from "../viz/DistributionBar";
 import { fmt } from "@/lib/format";
-import type { LocationSnapshot, UnitRecord } from "@/lib/types";
+import type { LocationSnapshot, UnitRecord, WorkBucket, SaleBucket } from "@/lib/types";
 
 /**
  * The at-a-glance command center. Receives units already filtered by the global
@@ -17,32 +18,43 @@ import type { LocationSnapshot, UnitRecord } from "@/lib/types";
  */
 export function OverviewGrid({ units, allLocations }: { units: UnitRecord[]; allLocations: LocationSnapshot[] }) {
   const m = useMemo(() => deriveMetrics(units), [units]);
+  const [drill, setDrill] = useState<{ title: string; units: UnitRecord[] } | null>(null);
   if (units.length === 0) return <EmptyState title="No unit rows for this filter" />;
 
+  // Each card drills into the exact units behind its number (same buckets the
+  // metric counts — see deriveMetrics — so the table can never contradict the card).
+  const open = (title: string, list: UnitRecord[]) => () => setDrill({ title, units: list });
+  const byWork = (w: WorkBucket) => units.filter((u) => u.work === w);
+  const bySale = (s: SaleBucket) => units.filter((u) => u.sale === s);
+  const openWorkUnits = units.filter((u) => u.committed && (u.work === "working" || u.work === "needs_diagnosis"));
+
   return (
-    <div className="space-y-5 fade-up">
-      <AlertBanner openWorkOnSold={m.openWorkOnSold} />
+    <>
+      <div className="space-y-5 fade-up">
+        <AlertBanner openWorkOnSold={m.openWorkOnSold} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <MetricCard label="Total Fleet" metric={m.totalFleet} accent="ink" />
-        <MetricCard label="Ready to Sell" metric={m.ready} accent="ready" subtext="Fully prepped" />
-        <MetricCard label="Being Worked On" metric={m.working} accent="working" subtext="Service / body" />
-        <MetricCard label="Needs Diagnosis" metric={m.needsDiagnosis} accent="diag" subtext="Act first" />
-        <MetricCard label="On Rent" metric={m.onRent} accent="rent" subtext="Generating income" />
-        <MetricCard label="Sold" metric={m.sold} accent="diag" subtext="Closed deals" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <MetricCard label="Total Fleet" metric={m.totalFleet} accent="ink" subtext="Every unit" onClick={open("Total Fleet", units)} />
+          <MetricCard label="Ready to Sell" metric={m.ready} accent="ready" subtext="Fully prepped" onClick={open("Ready to Sell", byWork("ready"))} />
+          <MetricCard label="Being Worked On" metric={m.working} accent="working" subtext="Service / body" onClick={open("Being Worked On", byWork("working"))} />
+          <MetricCard label="Needs Diagnosis" metric={m.needsDiagnosis} accent="diag" subtext="Act first" onClick={open("Needs Diagnosis", byWork("needs_diagnosis"))} />
+          <MetricCard label="On Rent" metric={m.onRent} accent="rent" subtext="Generating income" onClick={open("On Rent", byWork("on_rent"))} />
+          <MetricCard label="Sold" metric={m.sold} accent="diag" subtext="Closed deals" onClick={open("Sold", byWork("sold"))} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <MetricCard label="Paid in Full" metric={m.paidInFull} accent="pif" subtext="Top tier" onClick={open("Paid in Full", bySale("paid_in_full"))} />
+          <MetricCard label="Down Payment" metric={m.downPayment} accent="downpmt" subtext="Deposit recv'd" onClick={open("Down Payment", bySale("down_payment"))} />
+          <MetricCard label="Govt PO's" metric={m.govtPo} accent="govt" subtext="Contract" onClick={open("Govt PO's", bySale("govt_po"))} />
+          <MetricCard label="Open Work on Sold" metric={m.openWorkOnSold} accent="diag" subtext="Fix now" onClick={open("Open Work on Sold", openWorkUnits)} />
+        </div>
+
+        <OverviewCharts units={units} />
+
+        <LocationsSnapshot locations={allLocations} />
       </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MetricCard label="Paid in Full" metric={m.paidInFull} accent="pif" subtext="Top tier" />
-        <MetricCard label="Down Payment" metric={m.downPayment} accent="downpmt" subtext="Deposit recv'd" />
-        <MetricCard label="Govt PO's" metric={m.govtPo} accent="govt" subtext="Contract" />
-        <MetricCard label="Open Work on Sold" metric={m.openWorkOnSold} accent="diag" subtext="Fix now" />
-      </div>
-
-      <OverviewCharts units={units} />
-
-      <LocationsSnapshot locations={allLocations} />
-    </div>
+      {drill && <UnitsDrawer title={drill.title} units={drill.units} onClose={() => setDrill(null)} />}
+    </>
   );
 }
 

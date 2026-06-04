@@ -2,13 +2,12 @@ import type { UnitRecord, Row, SchemaProfile } from "@/lib/types";
 import { toNumber, type PivotResult } from "@/lib/pivot";
 import type { BarsDatum } from "../viz/CategoryBars";
 
-/** Lead with the forklift's given name, then year/make/type, fuel, and last-4 serial. */
+/** Lead with the last-4 serial then the forklift name, e.g. "#030H Sofia · 2026 Yale Pneumatic". */
 export function unitTitle(u: UnitRecord): string {
-  const name = u.forkliftName ?? u.name;
+  const lead = [u.serial4 ? `#${u.serial4}` : null, u.forkliftName ?? u.name].filter(Boolean).join(" ");
   const spec = [u.year, u.make, u.type].filter(Boolean).join(" ");
-  const tail = [u.fuel, u.serial4 ? `#${u.serial4}` : null].filter(Boolean).join(" · ");
-  const head = name ? (spec ? `${name} · ${spec}` : name) : spec || u.serial4 || u.serial || "Unit";
-  return tail ? `${head} · ${tail}` : head;
+  const head = lead ? (spec ? `${lead} · ${spec}` : lead) : spec || u.serial || "Unit";
+  return u.fuel ? `${head} · ${u.fuel}` : head;
 }
 
 /** PivotResult → { data, series } ready for <CategoryBars>. */

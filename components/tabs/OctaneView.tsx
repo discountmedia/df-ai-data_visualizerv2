@@ -33,7 +33,7 @@ export function OctaneView({ units }: { units: UnitRecord[] }) {
           { label: "Committed", value: committed, accent: "pif", sub: "paid / deposit / PO" },
           { label: "On Rent", value: counts.get("on_rent") ?? 0, accent: "rent", sub: "generating income" },
           { label: "Ready", value: counts.get("ready") ?? 0, accent: "ready", sub: "prepped" },
-          { label: "In Recon", value: (counts.get("working") ?? 0) + (counts.get("needs_diagnosis") ?? 0), accent: "working", sub: "being worked + needs diag" },
+          { label: "In Service", value: (counts.get("working") ?? 0) + (counts.get("needs_diagnosis") ?? 0), accent: "working", sub: "being worked + needs diag" },
           { label: "Sold", value: counts.get("sold") ?? 0, accent: "diag", sub: "closed" },
         ]} />
       ) : (

@@ -18,7 +18,7 @@ export interface CategoryView {
 }
 
 const VIEWS: Record<string, CategoryView> = {
-  work_stage: { layout: "workStage", blurb: "Where every unit sits in the recon pipeline.", order: 1 },
+  work_stage: { layout: "workStage", blurb: "Where every unit sits in the service pipeline.", order: 1 },
   sale_type:  { layout: "saleType",  blurb: "Committed deals, the signature chase list, and rep revenue.", order: 2 },
   location:   { layout: "location",  blurb: "Fleet split and readiness by yard (FOB State).", order: 3 },
   metric:     { layout: "metric",    blurb: "Pricing realism and fleet-value health.", order: 4 },

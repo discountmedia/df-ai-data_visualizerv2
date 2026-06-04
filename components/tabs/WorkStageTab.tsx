@@ -33,7 +33,7 @@ export function WorkStageTab({ category, units, scoring, schema, entities, parse
     <div className="space-y-5 fade-up">
       <TabHeader category={category} />
       <StatCards cols={4} items={[
-        { label: "In Recon Now", value: inRecon, accent: "working", sub: "being worked + needs diag" },
+        { label: "In Service Now", value: inRecon, accent: "working", sub: "being worked + needs diag" },
         { label: "Ready to Sell", value: ready, accent: "ready", sub: "fully prepped" },
         { label: "Sold, Open Work", value: committedOpen.length, accent: "diag", sub: "committed but unfinished" },
         { label: "$ Behind the Shop", value: committedOpenVal || null, money: true, accent: "pif", sub: "committed unfinished value" },
@@ -46,7 +46,7 @@ export function WorkStageTab({ category, units, scoring, schema, entities, parse
       )}
 
       <TabAI category={category} entities={entities} schema={schema} parsed={parsed}
-        stats={[`In recon now: ${inRecon}`, `Ready to sell: ${ready}`, `Sold with open work: ${committedOpen.length}`, `Value behind shop: ${fmtMoney(committedOpenVal || null)}`]} />
+        stats={[`In service now: ${inRecon}`, `Ready to sell: ${ready}`, `Sold with open work: ${committedOpen.length}`, `Value behind shop: ${fmtMoney(committedOpenVal || null)}`]} />
 
       <div>
         <p className="eyebrow mb-2">Priority Queue — what to work next</p>

@@ -8,8 +8,9 @@ visual rules — non-negotiable; see "House rules").
 
 An internal **operations dashboard** for Discount Forklift, a used-forklift
 dealer. It ingests a messy, multi-table inventory export and renders a dark,
-terminal-styled "command center" — fleet KPIs, per-category deep-dive tabs, a
-deterministic priority queue, and a multi-model AI read on top.
+clean (Inter-typeset) "command center" — fleet KPIs with click-through
+drill-downs, a service pipeline, a deterministic priority queue, a sales-team
+board, and an opt-in multi-model AI read on top.
 
 The data is **schema-agnostic**: column names are never hardcoded. Structure is
 inferred at runtime (heuristic instantly, then Claude refines it), and every
@@ -29,21 +30,28 @@ npm run build       # production build (Vercel runs this)
 
 There is no test suite. **Verify changes with `npm run typecheck` + a production
 build.** For a real render check, the data layer can be exercised in Node (parse
-`public/CuratedFields-TEST.xlsx` with `xlsx`, then run the `lib/derive*`/`lib/score`
-functions); the UI is best checked with a headless screenshot of the deployed
-URL.
+**both** bundled xlsx with `xlsx`, `mergeSources` them, then run the
+`lib/derive*`/`lib/score` functions); the UI is best checked with a headless
+screenshot (Chrome `--headless`, or `puppeteer-core` pointed at the local
+Chrome) of `next start` or the deployed URL.
 
 ## How it runs (important — this is unusual)
 
 **No upload splash, no schema-review screen.** On load the app immediately
-fetches `public/CuratedFields-TEST.xlsx`, parses it, and lands straight on the dashboard.
-This is intentional: in production an external system called **PRO** will push
-the data; the bundled xlsx is the stand-in test data, used *as if it were live
-PRO data*. Do not reintroduce an upload/landing page as the default entry.
+fetches the **two** bundled spreadsheets, merges them, parses, and lands straight
+on the dashboard. This is intentional: in production an external system called
+**PRO** will push the data; the bundled xlsx files are stand-in test data, used
+*as if they were live PRO data*. Do not reintroduce an upload/landing page as the
+default entry.
 
 Auto-load sequence (`components/DashboardProvider.tsx → loadAutoData`):
 
-1. `fetch("/CuratedFields-TEST.xlsx")` → `parseSpreadsheet` (SheetJS, in-browser).
+1. `fetch` **both** `/CURATEDV2-TESTING.xlsx` (rich inventory — the primary table,
+   72 cols incl. Forklift Name, Serial 4, Mast, heights, media URLs) and
+   `/CuratedFields-TEST.xlsx` (entity tables `email::`/`Staff::`/`round_robin::` +
+   Fuel type + "Sales Names Sold by"). Parse each with SheetJS, then
+   `mergeSources(v2, v1)` (`lib/mergeSources.ts`) joins them by **`Record UUID`**
+   into one `ParsedFile` (V2 primary; V1 fills missing columns + carries entities).
 2. `detectEntities` — split stacked tables by `prefix::` convention.
 3. `heuristicSchema(rows)` — **instant**, client-side. Dispatch `INFERRING`
    (sets `parsed` + `entities`) **then** `READY_WITH_SCHEMA` (same tick) → the
@@ -59,12 +67,12 @@ Auto-load sequence (`components/DashboardProvider.tsx → loadAutoData`):
 ## Architecture & data flow
 
 ```text
-CuratedFields-TEST.xlsx ─parseFile→ ParsedFile ─detectEntities→ EntitySet (base + email/staff/round_robin)
+CURATEDV2 + CuratedFields ─parse + mergeSources(Record UUID)→ ParsedFile ─detectEntities→ EntitySet (base + email/staff/round_robin)
                                               │
                        heuristicSchema / Claude (inferSchemaClient) → SchemaProfile
                                               │
-   deriveUnits → UnitRecord[]   deriveSales → SalesSummary   deriveMetrics → OverviewMetrics
-        │                                                    scoreUnits → ScoringResult
+   deriveUnits → UnitRecord[] ─splitOctaneUnits→ {df, octane}   deriveSales → SalesSummary   deriveMetrics → OverviewMetrics
+        │                                                       scoreUnits → ScoringResult
         └──────────────── all views render from these; AI only narrates ──────────────────┘
 ```
 
@@ -76,43 +84,78 @@ CuratedFields-TEST.xlsx ─parseFile→ ParsedFile ─detectEntities→ EntitySe
   are pure and deterministic. Column resolution goes through `conceptMap` +
   structural regex patterns, never hardcoded names. **Same export → same output,
   every time.**
-- **`lib/categories.ts`** is the single source of truth for grouping columns into
-  categories (role for base columns, entity prefix for the rest). Both the (now
-  unused) schema-review screen and the dashboard tabs build from it.
-- **`lib/pivot.ts`** is a deterministic group-by/cross-tab engine powering the
-  "Find connections" explorer; AI only picks the spec, the math is auditable.
+- **`lib/deriveUnits.ts`** buckets each unit's **work stage from curated service
+  checkpoints** (Diagnosed / Serviced / Final-sign-off / Equipment-on-rent /
+  SOLD!), not a single status column — far more accurate than value-mapping one
+  column. It also resolves the title fields (Forklift Name, Serial 4, year, fuel)
+  and a `specs` block (mast, fork length, lowered/raised height, tires, hours,
+  attachments, product/YouTube URLs) for the accordion drawers.
+- **`lib/octane.ts`** splits OCTANE (a sub-brand, `Make === "OCTANE"`) out of the
+  DF fleet so its ~89 units never blend into DF metrics; it gets its own bare tab.
+- **`lib/location.ts`** buckets `FOB State`/location into the 4 main yards
+  (Denver/Las Vegas/Phoenix/DFW) + "Other"; the global `LocationBar` filters on it.
+- **`lib/categories.ts` / `categoryConfig.ts` / `pivot.ts`** power the *legacy*
+  per-category router + "Find connections" explorer — **off the live render path**
+  now (the live nav is the fixed 4 tabs below). Keep, don't assume live.
 
 ## Navigation / tabs
 
-`app/page.tsx` renders a global **Overview** tab first, then **one tab per
-inferred category**, ordered by `lib/categoryConfig.ts` (workflow priority):
-Work Stage · Sale Type · Location · Metric · Staff · Other · Email · Round Robin
-· ID · Flag.
+`app/page.tsx` renders a **fixed four-tab** nav — **Overview · Work Stage ·
+Sales Team · OCTANE** — not one-tab-per-category. (The old per-category router in
+`lib/categoryConfig.ts` + `components/tabs/CategoryTab.tsx` + the `*Tab.tsx`
+layouts is **legacy and off the live render path**; keep but don't assume live.)
 
-- Rich/hand-tuned layouts: `components/tabs/{WorkStage,SaleType,Location,Metric,Staff,Other}Tab.tsx`.
-- Everything else falls back to `ExploreTab.tsx` (the generic pivot/connection explorer).
-- A global **location-filter pill bar** (`LocationBar.tsx`) filters the *entire*
-  dashboard (page-level `filteredUnits` is passed to every tab + Overview).
-- Each tab carries `TabAI.tsx` = ✦ Summarize + Find connections.
+- **Overview** (`components/overview/OverviewGrid.tsx`): KPI cards (work-stage +
+  payment buckets) + charts + per-yard snapshot + opt-in AI Insights. Every KPI
+  card is **clickable → `UnitsDrawer`** (`components/overview/UnitsDrawer.tsx`), a
+  searchable, 25/page table of the exact units behind that number — filtered by
+  the *same* bucket `deriveMetrics` counts, so a card and its drawer can never disagree.
+- **Work Stage** (`components/tabs/WorkStageView.tsx`): the **service pipeline**
+  (`components/viz/ReconPipeline.tsx` — journey bar + bottleneck call-out) +
+  readiness legend + priority queue. **Main yards only** — units bucketing to
+  "Other" are excluded (`dfMain` in `app/page.tsx`) and the "Other" location pill
+  is hidden here; an empty filter shows a clear empty state.
+- **Sales Team** (`components/sales/SalesTeam.tsx`): Roster sidebar (click a name
+  → contact card: email/phone/location/units), Sales Race, Deal Close Health,
+  Outreach-vs-Closes dual-axis chart, paginated leaderboard, round-robin,
+  unsigned-doc chase, + opt-in AI (`SalesAI`). **Company-wide** — the location bar
+  is hidden here.
+- **OCTANE** (`components/tabs/OctaneView.tsx`): bare stat cards for the OCTANE
+  sub-brand, kept out of DF metrics.
 
-**Dedup principle (enforced):** each chart/view has exactly ONE home. Overview
-owns the headline distributions (work-stage mix, sales-by-payment, brand,
-per-yard snapshot); Location owns work-stage×location + price-by-yard; Staff owns
-the rep leaderboard + unsigned chase. Don't reintroduce the same view on multiple
-tabs.
+- A global **location-filter pill bar** (`LocationBar.tsx`) filters Overview +
+  Work Stage + OCTANE — 4 yards (Denver/Las Vegas/Phoenix/DFW) + Other. Hidden on
+  Sales Team. Tab badges use *unfiltered* totals so they don't jump on filter clicks.
+- Long lists paginate **25/page** via the shared `components/ui/Pager` (priority
+  queue, sales leaderboard, unsigned docs, the drill-down) and carry a search box.
+- **"In Service"** is the agreed term for the service/recon pipeline — never use
+  "recon" in user-facing copy (component is still named `ReconPipeline` internally).
+- Unit titles read **`#<serial4> <forkliftName> · <year> <make> <type>`**
+  (`unitTitle` in `components/tabs/shared.ts`; `PriorityRow` in `PriorityQueue.tsx`).
 
-## Where AI is used (4 places)
+**Dedup principle (still enforced):** each chart/view has exactly ONE home —
+Overview owns the headline distributions, Work Stage owns the pipeline + queue,
+Sales Team owns the rep board + chase list. Don't reintroduce a view on two tabs.
+
+## Where AI is used (the business reads are opt-in)
+
+**Nothing is sent to any model for the business reads until the user clicks** —
+both are gated behind a button.
 
 1. **Schema inference** — `/api/infer-schema` (Claude, `lib/anthropic.ts`),
-   heuristic fallback in `lib/profile.ts`. Refines the instant heuristic schema.
+   heuristic fallback in `lib/profile.ts`. Runs automatically in the background to
+   refine the instant heuristic schema — but it's *schema-only*, no business
+   numbers are interpreted.
 2. **AI Insights (Overview)** — `/api/insights` runs a **multi-model ensemble**:
-   Claude (primary) + Grok + GPT (second opinions) **in parallel**, shown side by
-   side with a "where they diverge, look closer" note. `lib/secondOpinions.ts` is
-   provider-agnostic, key-gated, and isolates failures (a bad model string never
-   blocks the report). Heuristic fallback when no Anthropic key.
-3. **Per-tab Summarize** — `/api/summarize` (Claude), grounded narrative + chips.
-4. **Find connections** — `/api/connect` (Claude) turns a plain-English question
-   into a `PivotSpec`; `lib/pivot.ts` computes it deterministically.
+   Claude (primary) + Grok + GPT (second opinions) **in parallel**, side by side
+   with a "where they diverge, look closer" note. `lib/secondOpinions.ts` is
+   provider-agnostic, key-gated, isolates failures. Opt-in via the **"Run AI
+   Analysis"** button (`components/insights/InsightsTab.tsx`).
+3. **Sales Team summarize** — `components/sales/SalesAI.tsx` wraps the per-tab
+   `SummarizePanel` → `/api/summarize` (Claude). Opt-in; sends only already-
+   aggregated stats, never raw rows / customer PII.
+4. **Find connections** — `/api/connect` (Claude) → `PivotSpec`, computed
+   deterministically by `lib/pivot.ts`. Part of the *legacy* explorer path.
 
 **Hard rule: AI never computes numbers or ranks units.** Scoring and all metrics
 are deterministic; AI is a narrative/interpretation layer only.
@@ -133,9 +176,12 @@ are deterministic; AI is a narrative/interpretation layer only.
 
 Read `Discount Forklift Design System/{README.md,CLAUDE.md,colors_and_type.css}`.
 
-- **Dark theme default; everything monospace (IBM Plex Mono).** Big stat numerals
-  ONLY use the **Anton** condensed display face (`font-display`). Table data
-  values use `system-ui` sans.
+- **Dark theme default. UI font is Inter** (`--font-sans`, loaded in
+  `app/layout.tsx`). Big stat numerals ONLY use the **Anton** condensed display
+  face (`font-display`).
+  > ⚠️ The Design System doc still says "everything monospace (IBM Plex Mono)";
+  > the switch to **Inter** is an intentional owner override — keep Inter, do not
+  > reinstate the terminal monospace. The dark color theme is unchanged.
 - **Brand red `#ff2b2b` is scarce** — logo, 2px top-rule, primary action, active
   tab/filter, act-now. Status palette is semantic and fixed (ready/working/diag/
   rent + pif/downpmt/govt) — see `lib/buckets.ts` and `tailwind.config.ts`.
@@ -152,30 +198,35 @@ Read `Discount Forklift Design System/{README.md,CLAUDE.md,colors_and_type.css}`
 
 ```text
 app/
-  layout.tsx            root layout — fonts (Plex Mono + Anton), <ProBridge/>, provider
-  page.tsx              entry — auto-loads data, builds tabs, renders Header + active tab
+  layout.tsx            root layout — fonts (Inter + Anton), <ProBridge/>, provider
+  page.tsx              entry — auto-loads + merges data, fixed 4-tab nav, location filter
   globals.css           design tokens (--ground/--panel/--ink…), grid texture, fade-up
   error.tsx / global-error.tsx   error boundaries (so a render error never black-screens)
   api/{infer-schema,insights,connect,summarize}/route.ts
 components/
-  DashboardProvider.tsx state machine (useReducer): idle→ready, auto-load, activeTab, location filter
+  DashboardProvider.tsx state machine (useReducer): idle→ready, auto-load+merge, activeTab, location filter
   Header.tsx            logo, light/dark toggle, ⚡ AI Analysis, tabs, "refining" pill
   ProBridge.tsx         PRO postMessage handshake
-  overview/, charts/    rich Overview (metric cards + OverviewCharts + yard snapshot)
-  tabs/                 CategoryTab router + per-category layouts + TabAI/SummarizePanel
-  viz/                  shared primitives: ChartPanel, StatCards, CategoryBars, ScatterPanel, Leaderboard, DistributionBar, chartTheme
-  explore/CategoryExplorer.tsx   AI pivot/connection builder
-  sales/, all/, priority/, insights/   SalesTeam, AllUnits, PriorityQueue, InsightsTab (reused by tabs)
-lib/                    types, parseFile, profile (heuristic), bucketize, buckets, entities,
+  overview/             OverviewGrid + MetricCard (clickable) + UnitsDrawer (KPI drill-down)
+  charts/               OverviewCharts (sales-by-payment + brand bars)
+  tabs/                 WorkStageView · OctaneView · shared.ts (unitTitle); legacy CategoryTab/*Tab router
+  viz/                  shared primitives: ChartPanel, StatCards, CategoryBars, ReconPipeline (service pipeline), DistributionBar, chartTheme
+  sales/                SalesTeam + SalesAI (opt-in summarize)
+  priority/             PriorityQueue (search + 25/page + accordion specs)
+  insights/             InsightsTab (opt-in multi-model ensemble)
+  ui/                   Pills, Pager (shared 25/page pager)
+lib/                    types, parseFile, mergeSources (Record-UUID join), profile (heuristic),
+                        bucketize, buckets, entities, location, octane,
                         deriveUnits/deriveSales/deriveMetrics, score, categories, categoryConfig,
                         pivot, anthropic, secondOpinions, *Client.ts, format, sampleData
-public/                CuratedFields-TEST.xlsx (test data, auto-loaded), logo.png
+public/                CURATEDV2-TESTING.xlsx (primary inventory) + CuratedFields-TEST.xlsx (entities), logo.png
 Discount Forklift Design System/   brand system + UI kit reference (not built by next)
 ```
 
-Legacy but present: `components/FileUpload.tsx` and `lib/sampleData.ts` (the old
-upload/sample path) and `components/all/AllUnits.tsx` are not currently wired into
-a tab; keep or reuse, don't assume they're live.
+Legacy but present: the per-category router (`tabs/CategoryTab.tsx` + `*Tab.tsx`),
+`components/explore/`, `components/FileUpload.tsx`, `lib/sampleData.ts`, and
+`components/all/AllUnits.tsx` are not wired into the live 4-tab nav; keep or
+reuse, don't assume they're live.
 
 ## Environment variables (set in Vercel)
 

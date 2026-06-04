@@ -32,16 +32,24 @@ export default function Page() {
   const allUnits = useMemo(() => (entities && schema ? deriveUnits(entities, schema, overrides) : []), [entities, schema, overrides]);
   // OCTANE is a separate company — split it out so its units never blend into DF metrics.
   const { df, octane } = useMemo(() => splitOctaneUnits(allUnits), [allUnits]);
+  const current = activeTab || "overview";
 
   // Global location filter (4 yards + Other) drives every tab.
   const byLoc = (units: typeof df) => (locationFilter === "ALL" ? units : units.filter((u) => locationBucket(u.location) === locationFilter));
   const dfFiltered = useMemo(() => byLoc(df), [df, locationFilter]);
   const octaneFiltered = useMemo(() => byLoc(octane), [octane, locationFilter]);
   const scoring = useMemo(() => scoreUnits(dfFiltered), [dfFiltered]);
+  // Work Stage covers only the 4 main yards (Denver / Las Vegas / Phoenix / DFW);
+  // misc/"Other" locations are excluded from the service pipeline + priority queue.
+  const dfMain = useMemo(() => df.filter((u) => locationBucket(u.location) !== "Other"), [df]);
+  const workStageUnits = useMemo(() => byLoc(dfMain), [dfMain, locationFilter]);
+  const workStageScoring = useMemo(() => scoreUnits(workStageUnits), [workStageUnits]);
   // Unfiltered totals for the tab badges — keeps them from changing width (jumping)
-  // every time you click a location.
-  const scoringAll = useMemo(() => scoreUnits(df), [df]);
-  const filterBar = useMemo(() => bucketedLocations(df), [df]);
+  // every time you click a location. Work Stage badge counts main-yard units only.
+  const scoringAll = useMemo(() => scoreUnits(dfMain), [dfMain]);
+  const allLocBuckets = useMemo(() => bucketedLocations(df), [df]);
+  // Work Stage covers only the 4 main yards — drop the dead "Other" pill there.
+  const filterBar = current === "workstage" ? allLocBuckets.filter((l) => l.name !== "Other") : allLocBuckets;
   const overviewSnapshot = useMemo(() => bucketedLocations(dfFiltered), [dfFiltered]);
 
   if (phase === "idle" || phase === "parsing") return <LoadingState label="Loading inventory…" />;
@@ -51,7 +59,6 @@ export default function Page() {
   if (phase === "review") return <SchemaReview />;
   if (!parsed || !schema) return null;
 
-  const current = activeTab || "overview";
   const tabs = [
     { id: "overview", label: "Overview", count: df.length },
     { id: "workstage", label: "Work Stage", count: scoringAll.scoredCount },
@@ -93,7 +100,7 @@ export default function Page() {
             <div id="ai-insights"><InsightsTab scoring={scoring} units={dfFiltered} sales={salesSummary} /></div>
           </div>
         )}
-        {current === "workstage" && <WorkStageView units={dfFiltered} scoring={scoring} />}
+        {current === "workstage" && <WorkStageView units={workStageUnits} scoring={workStageScoring} />}
         {current === "sales" && (salesSummary ? <SalesTeam summary={salesSummary} /> : <EmptyState title="No sales data" />)}
         {current === "octane" && <OctaneView units={octaneFiltered} />}
       </main>

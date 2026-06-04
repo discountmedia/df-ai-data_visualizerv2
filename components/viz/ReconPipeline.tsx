@@ -5,7 +5,7 @@ import { WORK_LABEL, WORK_HEX } from "@/lib/buckets";
 import { cn } from "@/lib/format";
 
 /**
- * The recon pipeline as a progress story, not a flat bar chart. Reads left→right
+ * The service pipeline as a progress story, not a flat bar chart. Reads left→right
  * as the journey a unit takes to revenue: intake → shop → sale-ready → deployed.
  * The single "journey bar" shows where the whole fleet sits on that path; the
  * stage rows show the pile-up (and flag the bottleneck holding units back).
@@ -34,7 +34,7 @@ export function ReconPipeline({ counts }: { counts: Map<WorkBucket, number> }) {
   return (
     <section className="card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="eyebrow">Recon Pipeline</p>
+        <p className="eyebrow">Service Pipeline</p>
         <p className="text-[11px] text-ink-faint">
           {total.toLocaleString()} units · intake → sale-ready → deployed
         </p>
@@ -88,7 +88,7 @@ export function ReconPipeline({ counts }: { counts: Map<WorkBucket, number> }) {
       {/* Headline progress metrics. */}
       <div className="mt-4 grid grid-cols-3 gap-3 border-t border-line/50 pt-3">
         <Metric label="Sale-ready" value={`${pct(ready)}%`} sub={`${ready.toLocaleString()} units`} accent="text-ready" />
-        <Metric label="Still in recon" value={`${pct(inRecon)}%`} sub={`${inRecon.toLocaleString()} units`} accent="text-working" />
+        <Metric label="Still in service" value={`${pct(inRecon)}%`} sub={`${inRecon.toLocaleString()} units`} accent="text-working" />
         <Metric label="Bottleneck" value={WORK_LABEL[bottleneck]} sub={`${get(bottleneck).toLocaleString()} waiting`} accent="text-diag" />
       </div>
     </section>
