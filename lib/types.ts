@@ -322,3 +322,87 @@ export interface InsightsResult {
   /** Per-provider error when an opinion is missing (e.g. wrong model string). */
   othersErrors?: Record<string, string>;
 }
+
+/* ----------------------------------------------------------------------------
+ * Financials ("Sales Numbers") — gross-profit / margin analytics from the
+ * fullnew export. Self-contained: every figure here comes from that sheet's
+ * own per-unit rows, joined to nothing. Deterministic; AI never touches it.
+ * ------------------------------------------------------------------------- */
+
+/** One sold/inventory row's financial picture. All money fields are numbers or null. */
+export interface FinancialUnit {
+  rowIndex: number;
+  serial4: string | null;
+  make: string | null;
+  type: string | null;
+  year: string | null;
+  /** Raw FOB State/location string (bucketed elsewhere). */
+  location: string | null;
+  isOctane: boolean;
+  /** Gp TOTAL SOLD PRICE — the revenue figure. */
+  soldPrice: number | null;
+  /** Final sale price. */
+  finalPrice: number | null;
+  /** Final sale price Differential (often negative — sold below reference). */
+  differential: number | null;
+  desiredPrice: number | null;
+  targetPrice: number | null;
+  /** Gp Total Cost — the cost figure used for GP. */
+  cost: number | null;
+  unitCost: number | null;
+  dfInputCost: number | null;
+  /** Gross profit = soldPrice − cost, when both exist. */
+  gp: number | null;
+  /** gp / soldPrice. */
+  margin: number | null;
+  /** GP comission with spiff (sales commission). */
+  commission: number | null;
+  estCommissionW2: number | null;
+  estCommissionSpiff: number | null;
+  estCommissionSpiffW2: number | null;
+  estCostToCustomer: number | null;
+  spiff: number | null;
+  downPayment: number | null;
+  datePaid: string | null;
+  depositDate: string | null;
+  gpMonth: string | null;
+}
+
+export interface FinancialBucket {
+  label: string;
+  count: number;
+  revenue: number;
+  gp: number;
+}
+
+export interface FinancialSummary {
+  available: boolean;
+  /** Company-wide KPI totals from the sheet (constant per row — shown as-is, never summed). */
+  kpi: {
+    cost: number | null;
+    retail: number | null;
+    partsBilled: number | null;
+    paintBody: number | null;
+    serviced: number | null;
+  };
+  /** Per-unit financial rows, OCTANE excluded (split out like the rest of the app). */
+  units: FinancialUnit[];
+  octaneCount: number;
+  /** Rows with a sold price. */
+  soldCount: number;
+  /** Rows where GP is computable (sold price AND cost). */
+  gpCount: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalGP: number;
+  marginPct: number | null;
+  avgGP: number | null;
+  totalCommission: number;
+  totalSpiff: number;
+  totalDownPayment: number;
+  underwaterCount: number;
+  byYear: FinancialBucket[];
+  byYard: FinancialBucket[];
+  gpDistribution: { label: string; count: number }[];
+  notes: string[];
+}

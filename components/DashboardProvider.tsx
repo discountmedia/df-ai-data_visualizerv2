@@ -12,12 +12,15 @@ import type {
   SchemaProfile,
   SchemaOverrides,
   EntitySet,
+  FinancialSummary,
 } from "@/lib/types";
 import { parseSpreadsheet } from "@/lib/parseFile";
 import { inferSchemaClient } from "@/lib/inferSchemaClient";
 import { heuristicSchema } from "@/lib/profile";
 import { mergeSources } from "@/lib/mergeSources";
 import { detectEntities } from "@/lib/entities";
+import { deriveFinancials } from "@/lib/deriveFinancials";
+import { FINANCIALS_ENABLED } from "@/lib/features";
 import { makeSampleData } from "@/lib/sampleData";
 
 export type Phase = "idle" | "parsing" | "inferring" | "review" | "ready" | "error";
@@ -35,6 +38,8 @@ interface State {
   activeTab: string;
   /** True while the AI schema is being refined in the background (data already shown). */
   schemaRefining: boolean;
+  /** Gross-profit data from the fullnew export — loaded in the background, undefined until ready. */
+  financials?: FinancialSummary;
 }
 
 type Action =
@@ -47,6 +52,7 @@ type Action =
   | { type: "ERROR"; error: string }
   | { type: "SET_LOCATION"; location: string }
   | { type: "SET_TAB"; tab: string }
+  | { type: "SET_FINANCIALS"; financials: FinancialSummary }
   | { type: "BACK_TO_REVIEW" }
   | { type: "RESET" };
 
@@ -98,6 +104,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, locationFilter: action.location };
     case "SET_TAB":
       return { ...state, activeTab: action.tab };
+    case "SET_FINANCIALS":
+      return { ...state, financials: action.financials };
     case "BACK_TO_REVIEW":
       return { ...state, phase: "review" };
     case "RESET":
@@ -164,6 +172,16 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }));
       };
+      // The financials sheet (fullnew) is big and powers only its own tab, so load
+      // it in the background — it must never delay the main dashboard. Gated behind
+      // FINANCIALS_ENABLED: while the tab is hidden, the sheet is never fetched, so
+      // none of its sensitive figures ever reach the browser.
+      if (FINANCIALS_ENABLED) {
+        fetchSheet("/fullnew.xlsx", "fullnew.xlsx")
+          .then((fn) => dispatch({ type: "SET_FINANCIALS", financials: deriveFinancials(fn) }))
+          .catch(() => { /* financials are optional — the tab shows a notice if absent */ });
+      }
+
       const [v2, v1] = await Promise.all([
         fetchSheet("/CURATEDV2-TESTING.xlsx", "CURATEDV2-TESTING.xlsx"),
         fetchSheet("/CuratedFields-TEST.xlsx", "CuratedFields-TEST.xlsx"),

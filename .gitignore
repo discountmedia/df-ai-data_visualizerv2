@@ -7,3 +7,8 @@ out
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# Financials source — sensitive GP/cost/commission figures. Kept out of the repo
+# and the public deploy while the Financials tab is hidden (lib/features.ts).
+# Restore public/fullnew.xlsx locally to re-enable.
+**/fullnew.xlsx

@@ -8,6 +8,7 @@ import { LocationBar } from "@/components/LocationBar";
 import { OverviewGrid } from "@/components/overview/OverviewGrid";
 import { InsightsTab } from "@/components/insights/InsightsTab";
 import { SalesTeam } from "@/components/sales/SalesTeam";
+import { SalesNumbersView } from "@/components/financials/SalesNumbersView";
 import { WorkStageView } from "@/components/tabs/WorkStageView";
 import { OctaneView } from "@/components/tabs/OctaneView";
 import { LoadingState, ErrorState, EmptyState } from "@/components/states/States";
@@ -16,11 +17,12 @@ import { deriveUnits } from "@/lib/deriveUnits";
 import { scoreUnits } from "@/lib/score";
 import { splitOctaneUnits } from "@/lib/octane";
 import { locationBucket, bucketedLocations } from "@/lib/location";
+import { FINANCIALS_ENABLED } from "@/lib/features";
 
 export default function Page() {
   const {
     phase, parsed, entities, schema, overrides, error, reset,
-    activeTab, setTab, locationFilter, loadAutoData, schemaRefining,
+    activeTab, setTab, locationFilter, loadAutoData, schemaRefining, financials,
   } = useDashboard();
 
   // No upload splash — land straight in the bundled data (live, PRO pushes this).
@@ -63,11 +65,13 @@ export default function Page() {
     { id: "overview", label: "Overview", count: df.length },
     { id: "workstage", label: "Work Stage", count: scoringAll.scoredCount },
     { id: "sales", label: "Sales Team", count: salesSummary ? salesSummary.totalSold : null },
+    // Financials tab is hidden until the owner gives the go-ahead (see lib/features.ts).
+    ...(FINANCIALS_ENABLED ? [{ id: "financials", label: "Financials", count: financials?.available ? financials.gpCount : null }] : []),
     { id: "octane", label: "OCTANE", count: octane.length },
   ];
-  // Location filter applies to every tab except Sales Team (rep totals are
+  // The location filter doesn't apply to Sales Team or Financials (both are
   // company-wide), so hide the bar there rather than leave a dead control.
-  const showLocationBar = filterBar.length > 0 && current !== "sales";
+  const showLocationBar = filterBar.length > 0 && current !== "sales" && current !== "financials";
   const onAnalyze = () => {
     setTab("overview");
     const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -109,6 +113,7 @@ export default function Page() {
         )}
         {current === "workstage" && <WorkStageView units={workStageUnits} scoring={workStageScoring} />}
         {current === "sales" && (salesSummary ? <SalesTeam summary={salesSummary} /> : <EmptyState title="No sales data" />)}
+        {FINANCIALS_ENABLED && current === "financials" && <SalesNumbersView financials={financials} />}
         {current === "octane" && <OctaneView units={octaneFiltered} />}
       </main>
     </div>

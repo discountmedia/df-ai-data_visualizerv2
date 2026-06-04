@@ -122,6 +122,17 @@ layouts is **legacy and off the live render path**; keep but don't assume live.)
   is hidden here.
 - **OCTANE** (`components/tabs/OctaneView.tsx`): bare stat cards for the OCTANE
   sub-brand, kept out of DF metrics.
+- **Financials** (`components/financials/SalesNumbersView.tsx`) — a gross-profit /
+  "sales numbers" tab built from `public/fullnew.xlsx` (`lib/deriveFinancials.ts`:
+  per-unit GP = sold − cost, 5 company-wide KPI constants, GP by year/yard,
+  distribution). **HIDDEN by owner request behind `FINANCIALS_ENABLED` in
+  `lib/features.ts` (currently `false`).** While off: no nav tab, no render, and
+  `fullnew.xlsx` is never fetched — so none of the GP/cost/commission/SPIFF/KPI
+  figures reach the browser. `fullnew.xlsx` is gitignored + removed from `public/`
+  so the sensitive figures aren't downloadable. To re-enable: flip the flag to
+  `true` AND restore `public/fullnew.xlsx`. (Data-honesty notes baked into
+  `deriveFinancials`: `$0` sold prices are treated as not-sold; "GP Month" is
+  unusable so "Date paid" is the time axis; OCTANE excluded from aggregates.)
 
 - A global **location-filter pill bar** (`LocationBar.tsx`) filters Overview +
   Work Stage + OCTANE — 4 yards (Denver/Las Vegas/Phoenix/DFW) + Other. Hidden on
