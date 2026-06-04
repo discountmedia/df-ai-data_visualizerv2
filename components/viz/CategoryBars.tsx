@@ -14,7 +14,7 @@ export interface BarsDatum { name: string; [series: string]: number | string }
  * (category on Y, better for long labels like rep / make names).
  */
 export function CategoryBars({
-  data, series, layout = "vertical", stacked, colors, money, legend, height,
+  data, series, layout = "vertical", stacked, colors, money, legend, height, ariaLabel,
 }: {
   data: BarsDatum[];
   series: string[];
@@ -26,6 +26,8 @@ export function CategoryBars({
   money?: boolean;
   legend?: boolean;
   height?: number;
+  /** Text alternative for the chart (WCAG 1.1.1). Wraps in role="img" + aria-label. */
+  ariaLabel?: string;
 }) {
   const horizontalBars = layout === "vertical";
   const single = series.length === 1 && !stacked;
@@ -39,7 +41,7 @@ export function CategoryBars({
       : Array.isArray(colors) ? colors[idx % colors.length]
         : PALETTE[idx % PALETTE.length];
 
-  return (
+  const chart = (
     <ResponsiveContainer width="100%" height={height ?? "100%"}>
       <BarChart data={data} layout={layout} margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
         <CartesianGrid horizontal={!horizontalBars} vertical={horizontalBars} stroke={GRID} />
@@ -68,5 +70,14 @@ export function CategoryBars({
         )}
       </BarChart>
     </ResponsiveContainer>
+  );
+
+  if (!ariaLabel) return chart;
+  // role="img" + aria-label gives the SVG a text alternative (WCAG 1.1.1).
+  // The wrapper must keep ResponsiveContainer's fixed-height parent intact.
+  return (
+    <div role="img" aria-label={ariaLabel} style={{ width: "100%", height: height ?? "100%" }}>
+      {chart}
+    </div>
   );
 }

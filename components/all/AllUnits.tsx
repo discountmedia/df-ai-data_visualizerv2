@@ -111,13 +111,13 @@ export function AllUnits({ units }: { units: UnitRecord[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search make / model / serial / customer…"
-          className="w-full max-w-xs border border-line bg-panel px-3 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none sm:w-64"
+          className="w-full max-w-xs border border-line bg-panel px-3 py-1.5 text-xs text-ink placeholder:text-ink-dim focus:border-brand focus-visible:outline-none sm:w-64"
         />
         {locations.length > 0 && (
           <select
             value={loc}
             onChange={(e) => setLoc(e.target.value)}
-            className="border border-line bg-panel px-2 py-1.5 text-xs text-ink-dim focus:border-brand focus:outline-none"
+            className="border border-line bg-panel px-2 py-1.5 text-xs text-ink-dim focus:border-brand focus-visible:outline-none"
           >
             <option value="ALL">All locations</option>
             {locations.map((l) => (

@@ -105,7 +105,7 @@ export function CategoryExplorer({ label, sourceKey, rows, columns, defaultDimen
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && ask()}
             placeholder="Ask: which salesman sells the most of which make? · total sale price by location · …"
-            className="flex-1 border border-line bg-ground px-3 py-2 text-xs text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
+            className="flex-1 border border-line bg-ground px-3 py-2 text-xs text-ink placeholder:text-ink-dim focus:border-brand focus-visible:outline-none"
           />
           <button
             onClick={ask}
@@ -243,7 +243,7 @@ function Select({
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       className={cn(
-        "w-full border border-line bg-ground px-2 py-1.5 text-xs text-ink focus:border-brand focus:outline-none",
+        "w-full border border-line bg-ground px-2 py-1.5 text-xs text-ink focus:border-brand focus-visible:outline-none",
         disabled && "opacity-40"
       )}
     >

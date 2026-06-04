@@ -45,7 +45,7 @@ export function InsightsTab({ scoring, units, sales }:
       {/* AI narrative */}
       <section className="card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="eyebrow">AI Insights</p>
+          <h2 className="eyebrow">AI Insights</h2>
           <div className="flex items-center gap-2">
             {result && (
               <span
@@ -63,7 +63,7 @@ export function InsightsTab({ scoring, units, sales }:
               className={cn(
                 "px-3 py-1 text-[11px] uppercase tracking-wider transition-opacity disabled:opacity-40",
                 nonce === 0
-                  ? "bg-brand font-bold text-white hover:opacity-90"
+                  ? "bg-brand-strong font-bold text-white hover:opacity-90"
                   : "border border-line text-ink-dim hover:border-brand hover:text-ink"
               )}
             >
@@ -115,7 +115,7 @@ export function InsightsTab({ scoring, units, sales }:
 
       {/* Deterministic methodology */}
       <section className="card p-4">
-        <p className="eyebrow">How Scores Were Calculated</p>
+        <h2 className="eyebrow">How Scores Were Calculated</h2>
         <p className="mt-1 text-[11px] text-ink-faint">
           Priority is computed deterministically — no AI ranks any unit. Same export, same order, every time.
         </p>
@@ -149,7 +149,7 @@ export function InsightsTab({ scoring, units, sales }:
 
         {/* Tier distribution */}
         <div className="mt-4">
-          <p className="eyebrow mb-2">Queue by tier</p>
+          <h3 className="eyebrow mb-2">Queue by tier</h3>
           <TierBar scoring={scoring} />
           <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
             {TIERS.map((t) => (
@@ -195,7 +195,7 @@ function ReadColumn({
   return (
     <div className="border border-line bg-panel-2/40 p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="eyebrow text-ink">{label}</p>
+        <h3 className="eyebrow text-ink">{label}</h3>
         <span className={cn("border px-1.5 py-0.5 text-[9px] uppercase tracking-wider",
           accent === "rent" ? "border-rent/40 text-rent" : "border-ready/40 text-ready")}>
           {sub}

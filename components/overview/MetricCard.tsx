@@ -35,7 +35,7 @@ export function MetricCard({ label, metric, accent = "ink", subtext, onClick }:
       <button
         onClick={onClick}
         title={`View the ${typeof value === "number" ? fmt(value) : ""} units behind ${label}`}
-        className="card card-hover group w-full p-4 text-left transition-colors hover:border-brand/60 focus:border-brand focus:outline-none"
+        className="card card-hover group w-full p-4 text-left transition-colors hover:border-brand/60 focus:border-brand focus-visible:outline-none"
       >
         {inner}
       </button>

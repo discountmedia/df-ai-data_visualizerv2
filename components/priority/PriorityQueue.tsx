@@ -85,12 +85,13 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
           ))}
         </div>
         <div className="relative ml-auto w-full sm:w-64">
-          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
+          <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
           <input
+            aria-label="Search the priority queue"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search name, serial, make, customer…"
-            className="w-full border border-line bg-panel-2/60 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
+            className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-dim focus:border-brand"
           />
           {q && (
             <button
@@ -154,13 +155,27 @@ function PriorityRow({ rank, scored, open, onToggle }:
   const spec = [u.year, u.make, u.type].filter(Boolean).join(" ");
   const title = lead ? (spec ? `${lead} · ${spec}` : lead) : spec || "Unit";
   const rawSum = scored.factors.reduce((s, f) => s + f.points, 0);
+  const panelId = `priority-row-${u.rowIndex}-detail`;
   return (
-    <div className={cn("cursor-pointer px-4 py-3 hover:bg-panel-2", open && "bg-panel-2")} onClick={onToggle}>
+    <div
+      role="button"
+      tabIndex={0}
+      aria-expanded={open}
+      aria-controls={open ? panelId : undefined}
+      className={cn("cursor-pointer px-4 py-3 hover:bg-panel-2 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand", open && "bg-panel-2")}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+    >
       <div className="flex items-center gap-3">
         <span className="w-8 shrink-0 text-right text-xs tabular-nums text-ink-faint">#{rank}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-ink-faint">{open ? "▾" : "▸"}</span>
+            <span className="text-ink-faint" aria-hidden="true">{open ? "▾" : "▸"}</span>
             <span className="truncate text-sm font-bold text-ink" title={title}>{title}</span>
             <TierPill tier={scored.tier} />
           </div>
@@ -178,7 +193,7 @@ function PriorityRow({ rank, scored, open, onToggle }:
       </div>
 
       {open && (
-        <div className="mt-3 border-t border-line/50 pt-3" onClick={(e) => e.stopPropagation()}>
+        <div id={panelId} className="mt-3 border-t border-line/50 pt-3" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <p className="eyebrow mb-2">How this score was built</p>

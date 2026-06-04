@@ -37,14 +37,14 @@ function ChartTip({ active, payload, label }: TooltipProps<number, string>) {
   );
 }
 
-function Panel({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function Panel({ title, hint, ariaLabel, children }: { title: string; hint?: string; ariaLabel?: string; children: React.ReactNode }) {
   return (
     <section className="card p-4">
       <div className="flex items-baseline justify-between">
         <p className="eyebrow">{title}</p>
         {hint && <span className="text-[10px] text-ink-faint">{hint}</span>}
       </div>
-      <div className="mt-3 h-56 w-full">{children}</div>
+      <div className="mt-3 h-56 w-full" {...(ariaLabel ? { role: "img", "aria-label": ariaLabel } : null)}>{children}</div>
     </section>
   );
 }
@@ -75,7 +75,11 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
       <p className="eyebrow">Charts</p>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {hasSale && (
-          <Panel title="Sales by Payment Type" hint="committed units">
+          <Panel
+            title="Sales by Payment Type"
+            hint="committed units"
+            ariaLabel={`Bar chart, sales by payment type, committed units: ${saleData.map((d) => `${d.name} ${d.count}`).join(", ")}.`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={saleData} margin={{ top: 4, right: 12, bottom: 4, left: -8 }}>
                 <CartesianGrid vertical={false} stroke={GRID} />
@@ -93,7 +97,11 @@ export function OverviewCharts({ units }: { units: UnitRecord[] }) {
         )}
 
         {hasBrand && (
-          <Panel title="Inventory by Brand" hint="top makes · unit count">
+          <Panel
+            title="Inventory by Brand"
+            hint="top makes · unit count"
+            ariaLabel={`Bar chart, inventory by brand, top makes by unit count: ${brandData.map((d) => `${d.name} ${d.count}`).join(", ")}.`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={brandData} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 8 }}>
                 <CartesianGrid horizontal={false} stroke={GRID} />

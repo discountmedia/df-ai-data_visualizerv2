@@ -61,18 +61,39 @@ export function LocationTab({ category, units, entities, schema, parsed }: TabCo
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <ChartPanel title="Units in Stock by Location" hint="unit count" height={300}>
-          <CategoryBars data={byLoc.slice(0, 12)} series={["value"]} layout="vertical" />
+          <CategoryBars
+            data={byLoc.slice(0, 12)}
+            series={["value"]}
+            layout="vertical"
+            ariaLabel={`Units in stock by location: ${byLoc.slice(0, 12).map((d) => `${d.name} ${d.value}`).join(", ")}.`}
+          />
         </ChartPanel>
         {sellable.data.length > 0 && (
           <ChartPanel title="Sellable vs In-Work by Location" hint="stacked · excludes sold" height={300}>
-            <CategoryBars data={sellable.data} series={sellable.series} layout="vertical" stacked colors={workColors} legend />
+            <CategoryBars
+              data={sellable.data}
+              series={sellable.series}
+              layout="vertical"
+              stacked
+              colors={workColors}
+              legend
+              ariaLabel={`Sellable versus in-work by location, by ${sellable.series.join(", ")}: ${sellable.data
+                .map((d) => `${d.name} (${sellable.series.map((s) => `${s} ${(d as unknown as Record<string, number>)[s] ?? 0}`).join(", ")})`)
+                .join("; ")}.`}
+            />
           </ChartPanel>
         )}
       </div>
 
       {avgPrice.length > 0 && (
         <ChartPanel title="Average Sale Price by Location" hint="sold units" height={260}>
-          <CategoryBars data={avgPrice} series={["value"]} layout="vertical" money />
+          <CategoryBars
+            data={avgPrice}
+            series={["value"]}
+            layout="vertical"
+            money
+            ariaLabel={`Average sale price by location: ${avgPrice.map((d) => `${d.name} $${d.value.toLocaleString()}`).join(", ")}.`}
+          />
         </ChartPanel>
       )}
 

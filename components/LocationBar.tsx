@@ -16,6 +16,7 @@ export function LocationBar({ locations }: { locations: LocationSnapshot[] }) {
         const active = locationFilter === l.name;
         return (
           <button key={l.name} onClick={() => setLocation(l.name)}
+            aria-pressed={active}
             className={cn(
               "flex shrink-0 items-center gap-2 border px-3 py-1.5 text-[11px] uppercase tracking-wider transition-colors",
               active ? "border-brand text-ink" : "border-transparent text-ink-dim hover:text-ink"

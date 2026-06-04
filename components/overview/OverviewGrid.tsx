@@ -31,6 +31,11 @@ export function OverviewGrid({ units, allLocations }: { units: UnitRecord[]; all
   return (
     <>
       <div className="space-y-5 fade-up">
+        <div>
+          <p className="eyebrow text-brand">Overview</p>
+          <h1 className="mt-1 text-xl font-bold text-ink">Fleet at a glance</h1>
+        </div>
+
         <AlertBanner openWorkOnSold={m.openWorkOnSold} />
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
@@ -69,7 +74,7 @@ function LocationsSnapshot({ locations }: { locations: LocationSnapshot[] }) {
   if (locations.length === 0) return null;
   return (
     <section>
-      <p className="eyebrow mb-3">Locations — Snapshot</p>
+      <h2 className="eyebrow mb-3">Locations — Snapshot</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {locations.slice(0, 12).map((l) => (
           <div key={l.name} className="card p-3">

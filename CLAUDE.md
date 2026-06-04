@@ -194,6 +194,35 @@ Read `Discount Forklift Design System/{README.md,CLAUDE.md,colors_and_type.css}`
   terse, imperative, honest about confidence ("heuristic" vs "AI" badges).
 - Shared viz primitives live in `components/viz/`; reuse them.
 
+## Accessibility (WCAG 2.2 AA — keep it conformant)
+
+The app is verified to **0 axe-core violations** (WCAG 2.0/2.1/2.2 A+AA) on every
+tab + the drill-down drawer + light theme. Don't regress it:
+
+- **Status colors are theme-aware CSS vars** (`--ready`/`--working`/… as RGB
+  channels in `globals.css`, surfaced via Tailwind `rgb(var(--x)/<alpha>)`). The
+  dark values are vivid; the **light values are darkened** so color-as-text clears
+  4.5:1 on white. Add a new status color in BOTH theme blocks, not as a raw hex.
+- **Solid white-on-red buttons use `bg-brand-strong`** (`#e0202a`), not `bg-brand`
+  (`#ff2b2b` only reaches 3.7:1 with white). `text-brand`/`border-brand` accents on
+  dark still use `--brand`.
+- `--ink-faint` (#84848c dark) and `--line` (#646470 dark) are tuned to pass
+  4.5:1 (text) / 3:1 (borders). Don't darken them.
+- **No clickable `<div>`/`<tr>`** — interactive rows are real `<button>`s (or
+  `role="button"` + `tabIndex={0}` + Enter/Space `onKeyDown` + `aria-expanded`).
+  Sortable `<th>` wrap a `<button>` + `aria-sort`.
+- **Never `outline-none` without a replacement.** A global
+  `:focus-visible { outline: 2px solid rgb(var(--brand)) }` lives in `globals.css`;
+  don't suppress it on inputs/buttons.
+- Inputs need an `aria-label`; icon-only buttons (✕, ☀/☾) need one too; decorative
+  Unicode glyphs get `aria-hidden`. Recharts charts get `role="img"` + a data
+  `aria-label` (see `OverviewCharts`/`EmailsChart`/`ChartPanel`'s `ariaLabel`).
+- The `UnitsDrawer` modal traps focus, restores it on close, has `aria-modal` +
+  `aria-labelledby`, and Esc-closes — keep that if you touch it.
+- `globals.css` has a `prefers-reduced-motion` block; there's a skip-link in
+  `app/page.tsx` to `#main-content`. Re-verify after UI changes with the axe run
+  (`.axe.js` pattern: puppeteer-core + axe-core against `next start`).
+
 ## Directory map
 
 ```text

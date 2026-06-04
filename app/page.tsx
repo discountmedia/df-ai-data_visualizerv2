@@ -70,11 +70,18 @@ export default function Page() {
   const showLocationBar = filterBar.length > 0 && current !== "sales";
   const onAnalyze = () => {
     setTab("overview");
-    setTimeout(() => document.getElementById("ai-insights")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(() => document.getElementById("ai-insights")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }), 60);
   };
 
   return (
     <div className="min-h-screen">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-brand-strong focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white"
+      >
+        Skip to content
+      </a>
       <Header
         fileName={parsed.fileName}
         unitCount={df.length}
@@ -93,7 +100,7 @@ export default function Page() {
           </div>
         </div>
       )}
-      <main className="mx-auto max-w-7xl px-5 py-6">
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl px-5 py-6 focus:outline-none">
         {current === "overview" && (
           <div className="space-y-8 fade-up">
             {dfFiltered.length ? <OverviewGrid units={dfFiltered} allLocations={overviewSnapshot} /> : <EmptyState title="No units for this filter" />}

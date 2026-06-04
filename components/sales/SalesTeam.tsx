@@ -116,12 +116,13 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
             <p className="eyebrow">Sales Team — Leaderboard</p>
             <div className="relative w-full sm:w-56">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
+              <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
               <input
+                aria-label="Search reps"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search rep or location…"
-                className="w-full border border-line bg-panel-2/60 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
+                className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-dim focus:border-brand"
               />
               {q && (
                 <button onClick={() => setQ("")} aria-label="Clear search"
@@ -143,7 +144,7 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
               <thead>
                 <tr className="border-y border-line text-ink-dim">
                   <Th label="Rep" k="name" cur={sortKey} asc={asc} onSort={setSort} />
-                  <th className="px-4 py-2 font-normal">Location</th>
+                  <th scope="col" className="px-4 py-2 font-normal">Location</th>
                   <Th label="Units" k="unitsSold" cur={sortKey} asc={asc} onSort={setSort} num />
                   <Th label="Total $" k="totalSale" cur={sortKey} asc={asc} onSort={setSort} num />
                   <Th label="Avg $" k="avgSale" cur={sortKey} asc={asc} onSort={setSort} num />
@@ -219,6 +220,7 @@ function RosterSidebar({ reps, selected, onSelect }:
               <button
                 key={r.name}
                 onClick={() => onSelect(active ? null : r.name)}
+                aria-pressed={active}
                 className={cn(
                   "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors",
                   active ? "bg-brand/10 text-ink" : "text-ink-dim hover:bg-panel-2 hover:text-ink"
@@ -283,8 +285,11 @@ function EmailsChart({ summary }: { summary: SalesSummary }) {
     [summary.reps]
   );
   if (!summary.emailsAvailable || data.length === 0) return null;
+  const ariaLabel = `Combination chart, outreach versus closes, top 12 reps by email volume. Per rep, emails sent then units sold: ${data
+    .map((d) => `${d.name}, ${d["Emails sent"]} emails, ${d["Units sold"]} sold`)
+    .join("; ")}.`;
   return (
-    <ChartPanel title="Outreach vs Closes" hint="emails sent (bars) vs units sold (line) · top 12 by email volume" height={300}>
+    <ChartPanel title="Outreach vs Closes" hint="emails sent (bars) vs units sold (line) · top 12 by email volume" height={300} ariaLabel={ariaLabel}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 58, left: 0 }}>
           <CartesianGrid vertical={false} stroke={GRID} />
@@ -417,24 +422,48 @@ function Th({ label, k, cur, asc, onSort, num: isNum }:
   const active = cur === k;
   return (
     <th
-      onClick={() => onSort(k)}
-      className={cn("cursor-pointer select-none px-4 py-2 font-normal hover:text-ink", isNum ? "text-right" : "text-left", active && "text-ink")}
+      scope="col"
+      aria-sort={active ? (asc ? "ascending" : "descending") : "none"}
+      className={cn("select-none px-4 py-2 font-normal", isNum ? "text-right" : "text-left", active && "text-ink")}
     >
-      <span className="align-middle">{label}</span>
-      <span className={cn("ml-1 inline-block w-2.5 text-center align-middle", active ? "text-brand" : "text-ink-faint")}>
-        {active ? (asc ? "↑" : "↓") : "↕"}
-      </span>
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className={cn(
+          "inline-flex items-center gap-1 hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand",
+          isNum ? "flex-row-reverse" : ""
+        )}
+      >
+        <span className="align-middle">
+          {label}
+          <span className="sr-only">
+            {active ? `, sorted ${asc ? "ascending" : "descending"}` : ", sortable"}
+          </span>
+        </span>
+        <span aria-hidden="true" className={cn("inline-block w-2.5 text-center align-middle", active ? "text-brand" : "text-ink-faint")}>
+          {active ? (asc ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
     </th>
   );
 }
 
 function RepRow({ rep, open, units, emailsAvailable, onToggle }:
   { rep: SalesRep; open: boolean; units: SoldUnit[]; emailsAvailable: boolean; onToggle: () => void }) {
+  const detailId = `rep-detail-${rep.name.replace(/\s+/g, "-")}`;
   return (
     <>
-      <tr onClick={onToggle} className={cn("cursor-pointer border-b border-line/50 hover:bg-panel-2", open && "bg-panel-2")}>
-        <td className="truncate px-4 py-2 font-bold text-ink">
-          <span className="mr-1 text-ink-faint">{open ? "▾" : "▸"}</span>{rep.name}
+      <tr className={cn("border-b border-line/50 hover:bg-panel-2", open && "bg-panel-2")}>
+        <td className="truncate p-0 font-bold text-ink">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-controls={detailId}
+            className="flex w-full cursor-pointer items-center px-4 py-2 text-left font-bold text-ink"
+          >
+            <span className="mr-1 text-ink-faint" aria-hidden="true">{open ? "▾" : "▸"}</span>{rep.name}
+          </button>
         </td>
         <td className="truncate px-4 py-2 text-ink-dim">{rep.location ?? "—"}</td>
         <td className="whitespace-nowrap px-4 py-2 text-right font-bold tabular-nums text-ink">{rep.unitsSold || "—"}</td>
@@ -450,7 +479,7 @@ function RepRow({ rep, open, units, emailsAvailable, onToggle }:
         </td>
       </tr>
       {open && (
-        <tr className="border-b border-line/50">
+        <tr id={detailId} className="border-b border-line/50">
           <td colSpan={7} className="bg-ground/40 px-4 py-3">
             {units.length === 0 ? (
               <p className="text-[11px] text-ink-faint">No attributed units{rep.title ? ` · ${rep.title}` : ""}.</p>

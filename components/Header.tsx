@@ -75,7 +75,7 @@ export function Header({
             </button>
             {onAnalyze && (
               <button onClick={onAnalyze}
-                className="flex items-center gap-1 bg-brand px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90">
+                className="flex items-center gap-1 bg-brand-strong px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90">
                 ⚡ AI Analysis
               </button>
             )}
@@ -93,6 +93,7 @@ export function Header({
               <button
                 key={t.id}
                 onClick={() => onTab(t.id)}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs uppercase tracking-wider transition-colors",
                   active ? "border-brand text-ink" : "border-transparent text-ink-dim hover:text-ink"

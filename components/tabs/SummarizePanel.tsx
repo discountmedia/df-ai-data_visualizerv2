@@ -18,7 +18,7 @@ export function SummarizePanel({
   if (!res) {
     return (
       <button onClick={run} disabled={loading}
-        className="bg-brand px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+        className="bg-brand-strong px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-50">
         {loading ? "Analyzing…" : "✦ Summarize this tab"}
       </button>
     );
