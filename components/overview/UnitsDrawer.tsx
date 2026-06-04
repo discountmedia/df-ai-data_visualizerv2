@@ -5,8 +5,20 @@ import type { UnitRecord } from "@/lib/types";
 import { fmtMoney } from "@/lib/format";
 import { WorkPill, SalePill } from "@/components/ui/Pills";
 import { Pager } from "@/components/ui/Pager";
+import { SortHeader } from "@/components/ui/SortHeader";
 
 const PAGE = 25;
+type SortKey = "serial" | "unit" | "spec" | "location" | "stage" | "sale" | "price";
+const sortText = (u: UnitRecord, k: SortKey): string => {
+  switch (k) {
+    case "serial": return u.serial4 ?? "";
+    case "unit": return u.forkliftName ?? u.name ?? "";
+    case "spec": return [u.year, u.make, u.type].filter(Boolean).join(" ");
+    case "location": return u.location ?? "";
+    case "stage": return u.work;
+    default: return u.sale;
+  }
+};
 
 /**
  * Full-screen drill-down: the actual units behind a clicked KPI card. Searchable
@@ -16,9 +28,11 @@ const PAGE = 25;
 export function UnitsDrawer({ title, units, onClose }: { title: string; units: UnitRecord[]; onClose: () => void }) {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [asc, setAsc] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
-  useEffect(() => setPage(0), [q]);
+  useEffect(() => setPage(0), [q, sortKey, asc]);
   // Capture the opener (e.g. the MetricCard button) once on mount and return
   // focus to it on unmount, so closing doesn't dump the user at the top of the
   // document (WCAG 2.4.3).
@@ -55,12 +69,23 @@ export function UnitsDrawer({ title, units, onClose }: { title: string; units: U
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return units;
-    return units.filter((u) =>
+    const filtered = !needle ? units : units.filter((u) =>
       [u.serial4, u.serial, u.forkliftName, u.name, u.make, u.model, u.type, u.year, u.location, u.customer]
         .filter(Boolean).join(" ").toLowerCase().includes(needle)
     );
-  }, [units, q]);
+    if (!sortKey) return filtered; // no active sort → preserve the order passed in
+    const dir = asc ? 1 : -1;
+    return [...filtered].sort((a, b) =>
+      sortKey === "price"
+        ? ((a.price ?? -Infinity) - (b.price ?? -Infinity)) * dir
+        : sortText(a, sortKey).localeCompare(sortText(b, sortKey)) * dir
+    );
+  }, [units, q, sortKey, asc]);
+
+  const onSort = (k: SortKey) => {
+    if (k === sortKey) setAsc((v) => !v);
+    else { setSortKey(k); setAsc(k === "price" ? false : true); } // text asc, price desc by default
+  };
 
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE));
   const clampedPage = Math.min(page, pageCount - 1);
@@ -104,13 +129,13 @@ export function UnitsDrawer({ title, units, onClose }: { title: string; units: U
             <table className="w-full min-w-[760px] text-left text-xs">
               <thead className="sticky top-0 z-10 bg-panel">
                 <tr className="border-b border-line text-ink-dim">
-                  <th className="px-3 py-2 font-normal">Serial</th>
-                  <th className="px-3 py-2 font-normal">Unit</th>
-                  <th className="px-3 py-2 font-normal">Year · Make · Type</th>
-                  <th className="px-3 py-2 font-normal">Location</th>
-                  <th className="px-3 py-2 font-normal">Stage</th>
-                  <th className="px-3 py-2 font-normal">Sale</th>
-                  <th className="px-3 py-2 text-right font-normal">Price</th>
+                  <SortHeader label="Serial" k="serial" cur={sortKey} asc={asc} onSort={onSort} />
+                  <SortHeader label="Unit" k="unit" cur={sortKey} asc={asc} onSort={onSort} />
+                  <SortHeader label="Year · Make · Type" k="spec" cur={sortKey} asc={asc} onSort={onSort} />
+                  <SortHeader label="Location" k="location" cur={sortKey} asc={asc} onSort={onSort} />
+                  <SortHeader label="Stage" k="stage" cur={sortKey} asc={asc} onSort={onSort} />
+                  <SortHeader label="Sale" k="sale" cur={sortKey} asc={asc} onSort={onSort} />
+                  <SortHeader label="Price" k="price" cur={sortKey} asc={asc} onSort={onSort} num />
                 </tr>
               </thead>
               <tbody>
