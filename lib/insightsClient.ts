@@ -117,17 +117,11 @@ export async function fetchInsights(input: InsightsInput): Promise<InsightsResul
       }
       throw new Error(data?.error || `Insight generation failed (${res.status}).`);
     }
-    const data = (await res.json()) as {
-      summary: string; insights: Insight[];
-      others?: InsightsResult["others"]; othersErrors?: Record<string, string>;
-    };
+    const data = (await res.json()) as { summary: string; insights: Insight[] };
     if (!data.insights?.length && !data.summary) {
       return { ...heuristicInsights(input), source: "heuristic", note: "AI returned no insights — showing the rule-based read." };
     }
-    return {
-      summary: data.summary, insights: data.insights ?? [], source: "claude",
-      others: data.others ?? [], othersErrors: data.othersErrors,
-    };
+    return { summary: data.summary, insights: data.insights ?? [], source: "claude" };
   } catch (err) {
     return {
       ...heuristicInsights(input),

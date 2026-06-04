@@ -157,11 +157,11 @@ both are gated behind a button.
    heuristic fallback in `lib/profile.ts`. Runs automatically in the background to
    refine the instant heuristic schema — but it's *schema-only*, no business
    numbers are interpreted.
-2. **AI Insights (Overview)** — `/api/insights` runs a **multi-model ensemble**:
-   Claude (primary) + Grok + GPT (second opinions) **in parallel**, side by side
-   with a "where they diverge, look closer" note. `lib/secondOpinions.ts` is
-   provider-agnostic, key-gated, isolates failures. Opt-in via the **"Run AI
-   Analysis"** button (`components/insights/InsightsTab.tsx`).
+2. **AI Insights (Overview)** — `/api/insights` (Claude only via `lib/anthropic.ts`,
+   heuristic fallback in `lib/insightsClient.ts`). Opt-in via the **"Run AI
+   Analysis"** button (`components/insights/InsightsTab.tsx`). *(The Grok + GPT
+   second-opinion ensemble — `lib/secondOpinions.ts` — was removed; Claude is the
+   sole analyzer.)*
 3. **Sales Team summarize** — `components/sales/SalesAI.tsx` wraps the per-tab
    `SummarizePanel` → `/api/summarize` (Claude). Opt-in; sends only already-
    aggregated stats, never raw rows / customer PII.
@@ -253,12 +253,12 @@ components/
   viz/                  shared primitives: ChartPanel, StatCards, CategoryBars, ReconPipeline (service pipeline), DistributionBar, chartTheme
   sales/                SalesTeam + SalesAI (opt-in summarize)
   priority/             PriorityQueue (search + 25/page + accordion specs)
-  insights/             InsightsTab (opt-in multi-model ensemble)
+  insights/             InsightsTab (opt-in Claude read)
   ui/                   Pills, Pager (shared 25/page pager)
 lib/                    types, parseFile, mergeSources (Record-UUID join), profile (heuristic),
                         bucketize, buckets, entities, location, octane,
-                        deriveUnits/deriveSales/deriveMetrics, score, categories, categoryConfig,
-                        pivot, anthropic, secondOpinions, *Client.ts, format, sampleData
+                        deriveUnits/deriveSales/deriveMetrics, deriveFinancials, score, categories,
+                        categoryConfig, pivot, anthropic, *Client.ts, format, features, sampleData
 public/                CURATEDV2-TESTING.xlsx (primary inventory) + CuratedFields-TEST.xlsx (entities), logo.png
 Discount Forklift Design System/   brand system + UI kit reference (not built by next)
 ```
@@ -274,10 +274,9 @@ reuse, don't assume they're live.
 | --- | --- |
 | `ANTHROPIC_API_KEY` | Claude — schema inference + insights + summarize + connect. Heuristic fallback without it. |
 | `ANTHROPIC_MODEL` | optional, default `claude-sonnet-4-6` |
-| `XAI_API_KEY` | Grok second opinion |
-| `XAI_MODEL` | optional, default `grok-4.20-0309-reasoning` |
-| `OPENAI_API_KEY` | GPT second opinion |
-| `OPENAI_MODEL` | optional, default `gpt-4o` |
+
+(The `XAI_*` / `OPENAI_*` keys are no longer used — the Grok/GPT second-opinion
+analyzers were removed. Safe to delete from Vercel.)
 
 All keys are server-side only (read inside API routes), never exposed to the
 browser. Locally, put them in `.env.local` (gitignored).

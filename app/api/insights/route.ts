@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { generateInsights } from "@/lib/anthropic";
-import { generateSecondOpinions } from "@/lib/secondOpinions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,15 +21,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No snapshot provided." }, { status: 400 });
   }
   try {
-    // Claude is the primary read; Grok + GPT run in parallel as independent second
-    // opinions. Any second-opinion failure is isolated and never blocks the report.
-    const [claude, others] = await Promise.allSettled([
-      generateInsights(body),
-      generateSecondOpinions(body),
-    ]);
-    if (claude.status !== "fulfilled") throw claude.reason;
-    const second = others.status === "fulfilled" ? others.value : { opinions: [], errors: {} };
-    return NextResponse.json({ ...claude.value, others: second.opinions, othersErrors: second.errors });
+    // Claude is the only analyzer — second-opinion models (Grok/GPT) were removed.
+    const result = await generateInsights(body);
+    return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Insight generation failed.";
     return NextResponse.json({ error: message }, { status: 500 });

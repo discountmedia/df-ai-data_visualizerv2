@@ -12,7 +12,7 @@ import { AXIS, GRID, ChartTip } from "../viz/chartTheme";
 import { Pager } from "../ui/Pager";
 import { SalesAI } from "./SalesAI";
 
-type SortKey = "unitsSold" | "totalSale" | "avgSale" | "emailsSent" | "unsignedDocs" | "name";
+type SortKey = "unitsSold" | "totalSale" | "avgSale" | "emailsSent" | "unsignedDocs" | "name" | "location";
 const PAGE = 25;
 
 export function SalesTeam({ summary }: { summary: SalesSummary }) {
@@ -41,13 +41,18 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
     const dir = asc ? 1 : -1;
     return [...rows].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
-      return ((num(a[sortKey]) - num(b[sortKey])) * dir) || (b.unitsSold - a.unitsSold);
+      if (sortKey === "location") {
+        const al = a.location ?? "", bl = b.location ?? "";
+        if (!al !== !bl) return al ? -1 : 1; // reps with no location always sink to the bottom
+        return (al.localeCompare(bl) * dir) || (b.unitsSold - a.unitsSold);
+      }
+      return ((num(a[sortKey] as number | null) - num(b[sortKey] as number | null)) * dir) || (b.unitsSold - a.unitsSold);
     });
   }, [summary.reps, sortKey, asc, q]);
 
   const setSort = (k: SortKey) => {
     if (k === sortKey) setAsc(!asc);
-    else { setSortKey(k); setAsc(k === "name"); }
+    else { setSortKey(k); setAsc(k === "name" || k === "location"); }
   };
 
   if (summary.reps.length === 0 && summary.totalSold === 0) {
@@ -144,7 +149,7 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
               <thead>
                 <tr className="border-y border-line text-ink-dim">
                   <Th label="Rep" k="name" cur={sortKey} asc={asc} onSort={setSort} />
-                  <th scope="col" className="px-4 py-2 font-normal">Location</th>
+                  <Th label="Location" k="location" cur={sortKey} asc={asc} onSort={setSort} />
                   <Th label="Units" k="unitsSold" cur={sortKey} asc={asc} onSort={setSort} num />
                   <Th label="Total $" k="totalSale" cur={sortKey} asc={asc} onSort={setSort} num />
                   <Th label="Avg $" k="avgSale" cur={sortKey} asc={asc} onSort={setSort} num />
@@ -570,13 +575,21 @@ function LeadSourcesPanel({ summary }: { summary: SalesSummary }) {
   );
 }
 
+const isUnattributed = (rep: string | null | undefined) => !rep || /unattributed/i.test(rep);
+
 function UnsignedPanel({ units }: { units: SoldUnit[] }) {
   const [page, setPage] = useState(0);
+  // A missing sold-by rep ranks lowest — push "(unattributed)" deals to the bottom
+  // (stable, so attributed deals keep their order).
+  const sorted = useMemo(
+    () => [...units].sort((a, b) => Number(isUnattributed(a.rep)) - Number(isUnattributed(b.rep))),
+    [units]
+  );
   if (units.length === 0) return null;
-  const pageCount = Math.max(1, Math.ceil(units.length / PAGE));
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE));
   const clampedPage = Math.min(page, pageCount - 1);
   const start = clampedPage * PAGE;
-  const shown = units.slice(start, start + PAGE);
+  const shown = sorted.slice(start, start + PAGE);
   return (
     <section className="card overflow-hidden border-working/30">
       <div className="p-4">

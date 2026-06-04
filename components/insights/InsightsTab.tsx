@@ -77,39 +77,18 @@ export function InsightsTab({ scoring, units, sales }:
         ) : !result ? (
           <p className="mt-3 text-sm leading-relaxed text-ink-faint">
             AI analysis is <span className="text-ink">off by default</span>. Click{" "}
-            <span className="text-brand">Run AI Analysis</span> to have Claude, Grok &amp; GPT read this fleet
-            and surface what needs attention. Nothing is sent to any model until you ask.
+            <span className="text-brand">Run AI Analysis</span> to have Claude read this fleet and surface
+            what needs attention. Nothing is sent to any model until you ask.
           </p>
         ) : (
-          (() => {
-            const reads = [
-              { key: "claude", label: "Claude", sub: "primary read", accent: "ready" as const, summary: result.summary, insights: result.insights, note: result.note },
-              ...(result.others ?? []).map((o) => ({
-                key: o.source, label: o.source === "grok" ? "Grok" : "GPT",
-                sub: `2nd opinion · ${o.model}`, accent: "rent" as const,
-                summary: o.summary, insights: o.insights, note: undefined as string | undefined,
-              })),
-            ];
-            const cols = reads.length >= 3 ? "lg:grid-cols-3" : reads.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-1";
-            const errs = result.othersErrors ? Object.entries(result.othersErrors) : [];
-            return (
-              <>
-                <div className={cn("mt-4 grid grid-cols-1 gap-4", cols)}>
-                  {reads.map((r) => (
-                    <ReadColumn key={r.key} label={r.label} sub={r.sub} accent={r.accent} summary={r.summary} insights={r.insights} note={r.note} />
-                  ))}
-                </div>
-                {reads.length > 1 && (
-                  <p className="mt-3 text-[11px] text-ink-faint">
-                    {reads.length} independent reads — where they diverge, look closer. That&apos;s the signal.
-                  </p>
-                )}
-                {errs.length > 0 && (
-                  <p className="mt-1 text-[10px] text-ink-faint">Unavailable: {errs.map(([k, v]) => `${k} — ${v}`).join(" · ")}</p>
-                )}
-              </>
-            );
-          })()
+          <div className="mt-4">
+            {result.summary && <p className="text-sm leading-relaxed text-ink">{result.summary}</p>}
+            {result.note && <p className="mt-1 text-[11px] text-ink-faint">{result.note}</p>}
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {result.insights.map((ins, i) => <InsightCard key={i} insight={ins} />)}
+            </div>
+            {result.insights.length === 0 && <p className="mt-3 text-[11px] text-ink-faint">No specific insights.</p>}
+          </div>
         )}
       </section>
 
@@ -182,31 +161,6 @@ function TierBar({ scoring }: { scoring: ScoringResult }) {
         if (!v) return null;
         return <div key={t} className={TIER_FILL[t]} style={{ width: `${(v / total) * 100}%` }} title={`${TIER_LABEL[t]}: ${v}`} />;
       })}
-    </div>
-  );
-}
-
-function ReadColumn({
-  label, sub, accent, summary, insights, note,
-}: {
-  label: string; sub: string; accent: "ready" | "rent";
-  summary: string; insights: Insight[]; note?: string;
-}) {
-  return (
-    <div className="border border-line bg-panel-2/40 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="eyebrow text-ink">{label}</h3>
-        <span className={cn("border px-1.5 py-0.5 text-[9px] uppercase tracking-wider",
-          accent === "rent" ? "border-rent/40 text-rent" : "border-ready/40 text-ready")}>
-          {sub}
-        </span>
-      </div>
-      {summary && <p className="mt-2 text-sm leading-relaxed text-ink">{summary}</p>}
-      {note && <p className="mt-1 text-[10px] text-ink-faint">{note}</p>}
-      <div className="mt-3 space-y-2">
-        {insights.map((ins, i) => <InsightCard key={i} insight={ins} />)}
-        {insights.length === 0 && <p className="text-[11px] text-ink-faint">No specific insights.</p>}
-      </div>
     </div>
   );
 }

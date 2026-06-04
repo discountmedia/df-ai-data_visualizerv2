@@ -57,9 +57,8 @@ Staff/Sales views read the email, roster, and round-robin slices.
 - **Priority / Act-Now queue** — deterministic, fully-explainable scoring; every
   point a unit earns is itemized. Searchable, paginated, with an accordion of each
   unit's specs (mast, fork length, heights, tires, product & video links).
-- **AI Insights — multi-model ensemble** — Claude (primary) plus **Grok** and
-  **GPT** as independent second opinions, side by side. Opt-in (nothing is sent
-  until you click); rule-based fallback when no key is set.
+- **AI Insights** — a Claude read of the fleet, opt-in (nothing is sent until you
+  click); rule-based fallback when no key is set.
 - **Light / dark theme**, the real logo, and the Discount Forklift design language
   (Inter UI font, Anton for big numbers, scarce brand red, semantic status colors,
   **no pie charts**, Unicode-glyph icons).
@@ -75,8 +74,6 @@ Optionally add keys to `.env.local` (the app runs on heuristics without them):
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...     # Claude: schema inference + insights + summarize + connect
-XAI_API_KEY=...                  # Grok second opinion   (XAI_MODEL optional)
-OPENAI_API_KEY=...               # GPT second opinion    (OPENAI_MODEL optional, default gpt-4o)
 ```
 
 > Note: `next dev` caches the `public/` listing at startup — if you change the
