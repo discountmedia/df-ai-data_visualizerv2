@@ -422,8 +422,8 @@ function Card({ label, value, accent, sub }: { label: string; value: string; acc
   );
 }
 
-function Th({ label, k, cur, asc, onSort, num: isNum }:
-  { label: string; k: SortKey; cur: SortKey; asc: boolean; onSort: (k: SortKey) => void; num?: boolean }) {
+function Th<K extends string>({ label, k, cur, asc, onSort, num: isNum }:
+  { label: string; k: K; cur: K; asc: boolean; onSort: (k: K) => void; num?: boolean }) {
   const active = cur === k;
   return (
     <th
@@ -576,40 +576,70 @@ function LeadSourcesPanel({ summary }: { summary: SalesSummary }) {
 }
 
 const isUnattributed = (rep: string | null | undefined) => !rep || /unattributed/i.test(rep);
+type UnsignedSortKey = "unit" | "rep" | "sale" | "price";
+const unitLabel = (u: SoldUnit) => [u.make, u.model, u.type].filter(Boolean).join(" · ") || "Unit";
 
 function UnsignedPanel({ units }: { units: SoldUnit[] }) {
   const [page, setPage] = useState(0);
-  // A missing sold-by rep ranks lowest — push "(unattributed)" deals to the bottom
-  // (stable, so attributed deals keep their order).
-  const sorted = useMemo(
-    () => [...units].sort((a, b) => Number(isUnattributed(a.rep)) - Number(isUnattributed(b.rep))),
-    [units]
-  );
-  if (units.length === 0) return null;
+  const [sortKey, setSortKey] = useState<UnsignedSortKey>("price");
+  const [asc, setAsc] = useState(false);
+  useEffect(() => setPage(0), [sortKey, asc]);
+
+  // "(unattributed)" deals are hidden entirely — only chase deals tied to a rep.
+  const attributed = useMemo(() => units.filter((u) => !isUnattributed(u.rep)), [units]);
+  const sorted = useMemo(() => {
+    const dir = asc ? 1 : -1;
+    return [...attributed].sort((a, b) => {
+      switch (sortKey) {
+        case "unit": return unitLabel(a).localeCompare(unitLabel(b)) * dir;
+        case "rep": return (a.rep ?? "").localeCompare(b.rep ?? "") * dir;
+        case "sale": return (a.saleTypeRaw ?? "").localeCompare(b.saleTypeRaw ?? "") * dir;
+        default: return ((a.price ?? 0) - (b.price ?? 0)) * dir;
+      }
+    });
+  }, [attributed, sortKey, asc]);
+
+  if (attributed.length === 0) return null;
+
+  const setSort = (k: UnsignedSortKey) => {
+    if (k === sortKey) setAsc(!asc);
+    else { setSortKey(k); setAsc(k !== "price"); } // text cols asc, price desc by default
+  };
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE));
   const clampedPage = Math.min(page, pageCount - 1);
   const start = clampedPage * PAGE;
   const shown = sorted.slice(start, start + PAGE);
+
   return (
     <section className="card overflow-hidden border-working/30">
-      <div className="p-4">
-        <p className="eyebrow text-working">Unsigned PandaDocs — Chase These ({units.length})</p>
-        <p className="mt-1 text-[11px] text-ink-faint">Committed deals (down-payment / paid-in-full) with no signature on file. Govt POs and removed units excluded.</p>
-        <div className="mt-3 space-y-1.5">
-          {shown.map((u, i) => (
-            <div key={start + i} className="flex items-center justify-between gap-3 border-b border-line/40 pb-1.5 text-[11px]">
-              <span className="text-ink">{[u.make, u.model, u.type].filter(Boolean).join(" · ") || "Unit"}</span>
-              <span className="flex items-center gap-3">
-                <span className="text-ink-dim">{u.rep}</span>
-                <SalePill raw={u.saleTypeRaw} />
-                <span className="w-16 text-right tabular-nums text-pif">{fmtMoney(u.price)}</span>
-              </span>
-            </div>
-          ))}
-        </div>
+      <div className="px-4 pt-4">
+        <p className="eyebrow text-working">Unsigned PandaDocs — Chase These ({attributed.length})</p>
+        <p className="mt-1 text-[11px] text-ink-faint">Committed deals (down-payment / paid-in-full) with no signature on file. Govt POs, removed, and unattributed deals excluded.</p>
       </div>
-      {units.length > PAGE && (
-        <Pager page={clampedPage} pageCount={pageCount} start={start} shown={shown.length} total={units.length} onPage={setPage} />
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[560px] text-left text-xs">
+          <thead>
+            <tr className="border-y border-line text-ink-dim">
+              <Th label="Unit" k="unit" cur={sortKey} asc={asc} onSort={setSort} />
+              <Th label="Rep" k="rep" cur={sortKey} asc={asc} onSort={setSort} />
+              <Th label="Sale" k="sale" cur={sortKey} asc={asc} onSort={setSort} />
+              <Th label="Price" k="price" cur={sortKey} asc={asc} onSort={setSort} num />
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((u, i) => (
+              <tr key={start + i} className="border-b border-line/40 hover:bg-panel-2">
+                <td className="px-4 py-2 text-ink">{unitLabel(u)}</td>
+                <td className="truncate px-4 py-2 text-ink-dim">{u.rep}</td>
+                <td className="px-4 py-2"><SalePill raw={u.saleTypeRaw} /></td>
+                <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-pif">{fmtMoney(u.price)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {attributed.length > PAGE && (
+        <Pager page={clampedPage} pageCount={pageCount} start={start} shown={shown.length} total={sorted.length} onPage={setPage} />
       )}
     </section>
   );

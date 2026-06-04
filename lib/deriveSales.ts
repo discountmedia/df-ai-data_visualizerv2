@@ -225,9 +225,18 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
     if (rep.unitsSold === 0) rep.totalSale = null;
   }
 
-  // Keep reps who either sold something or exist in the roster (drop empty noise).
+  // Owner rule: Jennie Kehayas sits in ADMIN but works DENVER SALES — relabel her
+  // to that yard; every OTHER ADMIN staffer is dropped from the leaderboard + roster.
+  const isAdminLoc = (loc: string | null) => !!loc && /^\s*admin\s*$/i.test(loc);
+  for (const rep of reps.values()) {
+    if (isAdminLoc(rep.location) && /jennie\s+kehayas/i.test(rep.name)) rep.location = "DENVER SALES";
+  }
+  for (const rep of reps.values()) if (isAdminLoc(rep.location)) delete soldUnitsByRep[rep.name]; // drop their attribution too
+
+  // Keep reps who either sold something or exist in the roster (drop empty noise),
+  // excluding the ADMIN staff handled above.
   let repList = Array.from(reps.values()).filter(
-    (r) => r.unitsSold > 0 || rosterByName.has(r.name.toLowerCase())
+    (r) => (r.unitsSold > 0 || rosterByName.has(r.name.toLowerCase())) && !isAdminLoc(r.location)
   );
   repList.sort(
     (a, b) =>
