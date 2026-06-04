@@ -45,16 +45,18 @@ export function CategoryBars({
     <ResponsiveContainer width="100%" height={height ?? "100%"}>
       <BarChart data={data} layout={layout} margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
         <CartesianGrid horizontal={!horizontalBars} vertical={horizontalBars} stroke={GRID} />
+        {/* Axes are rendered as DIRECT children of BarChart (no Fragment wrapper):
+            Recharts detects axes by child type and does not see through a <>…</>,
+            so wrapping them silently drops every tick label. */}
         {horizontalBars ? (
-          <>
-            <XAxis type="number" stroke={AXIS} fontSize={11} tickLine={false} tickFormatter={tickFmt} />
-            <YAxis type="category" dataKey="name" stroke={AXIS} fontSize={11} width={130} tickLine={false} axisLine={false} />
-          </>
+          <XAxis type="number" stroke={AXIS} fontSize={11} tickLine={false} tickFormatter={tickFmt} />
         ) : (
-          <>
-            <XAxis dataKey="name" stroke={AXIS} fontSize={11} tickLine={false} interval={0} angle={data.length > 6 ? -20 : 0} textAnchor={data.length > 6 ? "end" : "middle"} height={data.length > 6 ? 48 : 24} />
-            <YAxis stroke={AXIS} fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} tickFormatter={tickFmt} />
-          </>
+          <XAxis dataKey="name" stroke={AXIS} fontSize={11} tickLine={false} interval={0} angle={data.length > 6 ? -20 : 0} textAnchor={data.length > 6 ? "end" : "middle"} height={data.length > 6 ? 48 : 24} />
+        )}
+        {horizontalBars ? (
+          <YAxis type="category" dataKey="name" stroke={AXIS} fontSize={11} width={130} tickLine={false} axisLine={false} interval={0} />
+        ) : (
+          <YAxis stroke={AXIS} fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} tickFormatter={tickFmt} />
         )}
         <Tooltip content={<ChartTip money={money} />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
         {legend && <Legend wrapperStyle={{ fontSize: 11, color: AXIS }} iconType="square" iconSize={9} />}
