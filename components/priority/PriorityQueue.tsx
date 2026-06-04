@@ -186,6 +186,10 @@ function PriorityRow({ rank, scored, open, onToggle }:
           <WorkPill work={u.work} />
           <SalePill sale={u.sale} />
         </div>
+        <div className="hidden w-20 shrink-0 text-right sm:block">
+          <span className="font-display text-base leading-none tabular-nums text-pif">{u.price != null ? fmtMoney(u.price) : "—"}</span>
+          <span className="block text-[9px] uppercase tracking-wide text-ink-faint">sale price</span>
+        </div>
         <div className="w-14 shrink-0 text-right">
           <span className="font-display text-3xl leading-none tabular-nums text-ink">{scored.score}</span>
           <span className="block text-[9px] uppercase tracking-wide text-ink-faint">score</span>

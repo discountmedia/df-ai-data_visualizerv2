@@ -20,6 +20,8 @@ export interface StatItem {
   /** false → greyed "—" + "Low confidence" (mirrors MetricCard). */
   available?: boolean;
   money?: boolean;
+  /** When set (and the stat has data), the card becomes a button that drills in. */
+  onClick?: () => void;
 }
 
 export function StatCards({ items, cols = 3 }: { items: StatItem[]; cols?: number }) {
@@ -31,10 +33,12 @@ export function StatCards({ items, cols = 3 }: { items: StatItem[]; cols?: numbe
           typeof it.value === "string" ? it.value
             : it.value == null ? "—"
               : it.money ? fmtMoney(it.value) : fmt(it.value);
-        return (
-          <div key={i} className="card card-hover p-4">
+        const clickable = !!it.onClick && available && (typeof it.value === "number" ? it.value > 0 : true);
+        const inner = (
+          <>
             <div className="flex items-center justify-between">
-              <p className="eyebrow">{it.label}</p><span className="text-ink-faint">→</span>
+              <p className="eyebrow">{it.label}</p>
+              <span className={cn("transition-colors", clickable ? "text-ink-dim group-hover:text-brand" : "text-ink-faint")}>→</span>
             </div>
             <p className={cn("mt-2 font-display text-4xl leading-none tabular-nums",
               available ? ACCENT[it.accent ?? "ink"] : "text-ink-faint")}>
@@ -43,8 +47,21 @@ export function StatCards({ items, cols = 3 }: { items: StatItem[]; cols?: numbe
             <p className="mt-2 text-[11px] text-ink-faint">
               {available ? it.sub ?? "" : "Low confidence — column not mapped"}
             </p>
-          </div>
+          </>
         );
+        if (clickable) {
+          return (
+            <button
+              key={i}
+              onClick={it.onClick}
+              title={`View the units behind ${it.label}`}
+              className="card card-hover group w-full p-4 text-left transition-colors hover:border-brand/60 focus:border-brand focus-visible:outline-none"
+            >
+              {inner}
+            </button>
+          );
+        }
+        return <div key={i} className="card card-hover p-4">{inner}</div>;
       })}
     </div>
   );

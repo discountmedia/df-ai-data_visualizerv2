@@ -268,6 +268,8 @@ export interface ScoreWeights {
   committedUnknownWork: number;
   needsDiagnosis: number;
   beingWorked: number;
+  /** Bonus for high final-sale-price units already in the work queue (top tier). */
+  highValue: number;
 }
 
 export interface ScoreRule {

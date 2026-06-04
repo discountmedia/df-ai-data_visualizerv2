@@ -7,6 +7,7 @@ import type {
   ScoringResult,
   PriorityTier,
 } from "./types";
+import { fmtMoney } from "./format";
 
 /**
  * Deterministic priority scorer. Answers ONE operational question: which units
@@ -26,7 +27,18 @@ export const DEFAULT_WEIGHTS: ScoreWeights = {
   committedUnknownWork: 25,
   needsDiagnosis: 30,
   beingWorked: 15,
+  highValue: 25,
 };
+
+const HIGH_VALUE_AT = 50_000;
+const MID_VALUE_AT = 25_000;
+/** Tiered bonus for a queued unit's final sale price (0 below the mid threshold). */
+function valuePoints(price: number | null, w: ScoreWeights): number {
+  if (price == null) return 0;
+  if (price >= HIGH_VALUE_AT) return w.highValue;
+  if (price >= MID_VALUE_AT) return Math.round(w.highValue / 2);
+  return 0;
+}
 
 /** Static description of each rule for the "how scores were calculated" panel. */
 export function scoreRules(w: ScoreWeights): ScoreRule[] {
@@ -66,6 +78,12 @@ export function scoreRules(w: ScoreWeights): ScoreRule[] {
       label: "Being worked on (uncommitted)",
       points: w.beingWorked,
       when: "Not yet committed, but mid-flight in service/body — push it to Ready so it can sell.",
+    },
+    {
+      key: "highValue",
+      label: "High final sale price",
+      points: w.highValue,
+      when: `Added to a unit already in the queue, by its final sale price — the more revenue finishing it unlocks, the sooner it's worth working. Full bonus over ${fmtMoney(HIGH_VALUE_AT)}, half over ${fmtMoney(MID_VALUE_AT)}.`,
     },
   ];
 }
@@ -142,6 +160,20 @@ function scoreOne(unit: UnitRecord, w: ScoreWeights): { factors: ScoreFactor[]; 
     action = "Push to Ready — work in progress.";
   }
 
+  // Final sale price re-ranks WITHIN the work queue — finish the most valuable
+  // units first. Only units that already earned a work factor get the bonus.
+  if (factors.length > 0) {
+    const pts = valuePoints(unit.price, w);
+    if (pts > 0) {
+      factors.push({
+        key: "highValue",
+        label: "High final sale price",
+        points: pts,
+        detail: `Final sale price ${fmtMoney(unit.price)} — finishing it unlocks more revenue.`,
+      });
+    }
+  }
+
   return { factors, action };
 }
 
@@ -183,6 +215,7 @@ export function scoreUnits(units: UnitRecord[], weights: ScoreWeights = DEFAULT_
       `Paid-in-full adds +${weights.paidInFullBonus} and a Govt PO adds +${weights.govtPoBonus} on top, reflecting how much money is at risk and any contractual obligation.`,
       `Committed units with no readable work stage score +${weights.committedUnknownWork} — you can't promise a date until you confirm the unit is deliverable.`,
       `Uncommitted units are ordered by operational stage: needs-diagnosis +${weights.needsDiagnosis} (blocked at triage), being-worked-on +${weights.beingWorked} (push to Ready).`,
+      `Final sale price then re-ranks the queue: a queued unit over ${fmtMoney(HIGH_VALUE_AT)} adds +${weights.highValue} (over ${fmtMoney(MID_VALUE_AT)}, +${Math.round(weights.highValue / 2)}) — finish the most valuable units first.`,
       `Tiers: Act Now ≥ ${ACT_NOW}, High ≥ ${HIGH}, Medium ≥ ${MEDIUM}, Low below that. Ready / on-rent / sold units with no open work don't enter the queue.`,
       "Scoring is fully deterministic: no unit is ranked by AI, and the same export always produces the same order.",
     ],
