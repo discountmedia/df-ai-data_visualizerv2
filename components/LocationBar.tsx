@@ -18,10 +18,12 @@ export function LocationBar({ locations }: { locations: LocationSnapshot[] }) {
           <button key={l.name} onClick={() => setLocation(l.name)}
             aria-pressed={active}
             className={cn(
-              "flex shrink-0 items-center gap-2 border px-3 py-1.5 text-[13px] uppercase tracking-wider transition-colors",
+              // Match the main nav tabs exactly: underline indicator + red active
+              // count (one consistent active treatment across both menu rows).
+              "flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-[13px] uppercase tracking-wider transition-colors",
               active ? "border-brand text-ink" : "border-transparent text-ink-dim hover:text-ink"
             )}>
-            {l.name}<span className="text-ink-faint">{fmt(l.total)}</span>
+            {l.name}<span className={cn("tabular-nums", active ? "text-brand" : "text-ink-faint")}>{fmt(l.total)}</span>
           </button>
         );
       })}
