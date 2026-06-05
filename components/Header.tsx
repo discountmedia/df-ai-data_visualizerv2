@@ -28,7 +28,7 @@ export function Header({
         <div className="flex items-center justify-between gap-3 py-3">
           <div className="flex min-w-0 items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Discount Forklift" className="h-5 w-auto shrink-0" />
+            <img src="/logo.png" alt="Discount Forklift" className="h-9 w-auto shrink-0 sm:h-11" />
             <span className="hidden shrink-0 text-[13px] uppercase tracking-wider text-ink-dim sm:inline">Discount Forklift - Inventory Overview</span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
