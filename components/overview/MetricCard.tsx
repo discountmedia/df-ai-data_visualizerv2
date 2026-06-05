@@ -18,7 +18,8 @@ export function MetricCard({ label, metric, accent = "ink", subtext, onClick }:
     <>
       <div className="flex items-center justify-between">
         <p className="eyebrow">{label}</p>
-        <span className={cn("transition-colors", clickable ? "text-ink-dim group-hover:text-brand" : "text-ink-faint")}>→</span>
+        {/* The → is the drill-down affordance — only on cards that actually drill in. */}
+        {clickable && <span aria-hidden="true" className="text-ink-dim transition-colors group-hover:text-brand">→</span>}
       </div>
       <p className={cn("mt-2 font-display text-5xl leading-none tabular-nums",
         available ? ACCENT[accent] : "text-ink-faint")}>
@@ -41,5 +42,5 @@ export function MetricCard({ label, metric, accent = "ink", subtext, onClick }:
       </button>
     );
   }
-  return <div className="card card-hover p-4">{inner}</div>;
+  return <div className="card p-4">{inner}</div>;
 }

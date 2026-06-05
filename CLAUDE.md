@@ -58,6 +58,9 @@ Auto-load sequence (`components/DashboardProvider.tsx → loadAutoData`):
    dashboard shows real numbers immediately. The "⚡ refining" header pill shows.
 4. Background `inferSchemaClient` → `/api/infer-schema` (Claude) → `UPGRADE_SCHEMA`
    swaps the sharper AI schema in **without** disturbing the active tab/filter.
+5. In parallel (non-blocking), `fetch` `/new-vals.xlsx` → `deriveMediaProduction`
+   → `SET_MEDIA` for the Media tab's production-pipeline counts. Optional: the tab
+   degrades gracefully if it's absent (mirrors the gated `fullnew.xlsx` fetch).
 
 > ⚠️ **The #1 bug that has bitten this:** `READY_WITH_SCHEMA` only sets `schema`.
 > If `parsed`/`entities` aren't set first, `app/page.tsx`'s
@@ -100,8 +103,8 @@ CURATEDV2 + CuratedFields ─parse + mergeSources(Record UUID)→ ParsedFile ─
 
 ## Navigation / tabs
 
-`app/page.tsx` renders a **fixed four-tab** nav — **Overview · Work Stage ·
-Sales Team · OCTANE** — not one-tab-per-category. (The old per-category router in
+`app/page.tsx` renders a **fixed five-tab** nav — **Overview · Work Stage ·
+Sales Team · Media · OCTANE** — not one-tab-per-category. (The old per-category router in
 `lib/categoryConfig.ts` + `components/tabs/CategoryTab.tsx` + the `*Tab.tsx`
 layouts is **legacy and off the live render path**; keep but don't assume live.)
 
@@ -120,6 +123,17 @@ layouts is **legacy and off the live render path**; keep but don't assume live.)
   Outreach-vs-Closes dual-axis chart, paginated leaderboard, round-robin,
   unsigned-doc chase, + opt-in AI (`SalesAI`). **Company-wide** — the location bar
   is hidden here.
+- **Media** (`components/media/MediaView.tsx`): content-coverage command center.
+  Two deliberately-separate sources. (1) Per-unit **coverage** — walkaround video +
+  product-page URL from `UnitRecord.specs`, via `lib/deriveMedia.ts` — drives the
+  clickable KPI cards (→ `MediaDrawer`, a sortable table with click-through
+  video/page links) + the by-yard bars, and honors the location filter. (2) The
+  media-**production** pipeline (`public/new-vals.xlsx` → `lib/deriveMediaProduction.ts`)
+  is shown as **company-wide counts only** — that export has **no unit key** (a
+  positional join was tested and fails at ~4%), so it's explicitly labeled "not
+  filtered by yard". Coverage is computed over **listable** units (`isListable`)
+  so leaked round-robin / blank rows don't masquerade as "missing media", and the
+  excluded count is disclosed. No AI on this tab.
 - **OCTANE** (`components/tabs/OctaneView.tsx`): bare stat cards for the OCTANE
   sub-brand, kept out of DF metrics.
 - **Financials** (`components/financials/SalesNumbersView.tsx`) — a gross-profit /
@@ -135,8 +149,10 @@ layouts is **legacy and off the live render path**; keep but don't assume live.)
   unusable so "Date paid" is the time axis; OCTANE excluded from aggregates.)
 
 - A global **location-filter pill bar** (`LocationBar.tsx`) filters Overview +
-  Work Stage + OCTANE — 4 yards (Denver/Las Vegas/Phoenix/DFW) + Other. Hidden on
-  Sales Team. Tab badges use *unfiltered* totals so they don't jump on filter clicks.
+  Work Stage + Media + OCTANE — 4 yards (Denver/Las Vegas/Phoenix/DFW) + Other.
+  Hidden on Sales Team. Tab badges use *unfiltered* totals so they don't jump on
+  filter clicks. The nav tabs **and** this pill bar share one active treatment:
+  brand-red underline + red active count (kept consistent on purpose).
 - Long lists paginate **25/page** via the shared `components/ui/Pager` (priority
   queue, sales leaderboard, unsigned docs, the drill-down) and carry a search box.
 - **"In Service"** is the agreed term for the service/recon pipeline — never use
@@ -252,14 +268,17 @@ components/
   tabs/                 WorkStageView · OctaneView · shared.ts (unitTitle); legacy CategoryTab/*Tab router
   viz/                  shared primitives: ChartPanel, StatCards, CategoryBars, ReconPipeline (service pipeline), DistributionBar, chartTheme
   sales/                SalesTeam + SalesAI (opt-in summarize)
+  media/                MediaView (coverage + production pipeline) + MediaDrawer (links drill-down)
   priority/             PriorityQueue (search + 25/page + accordion specs)
-  insights/             InsightsTab (opt-in Claude read)
+  insights/             AiAnalysisModal (header → company-wide read) + AiAnalysisCard (per-tab, opt-in) + AiInsightsBody (shared); InsightsTab = deterministic scoring methodology
   ui/                   Pills, Pager (shared 25/page pager)
 lib/                    types, parseFile, mergeSources (Record-UUID join), profile (heuristic),
                         bucketize, buckets, entities, location, octane,
-                        deriveUnits/deriveSales/deriveMetrics, deriveFinancials, score, categories,
+                        deriveUnits/deriveSales/deriveMetrics, deriveFinancials,
+                        deriveMedia/deriveMediaProduction, score, categories,
                         categoryConfig, pivot, anthropic, *Client.ts, format, features, sampleData
-public/                CURATEDV2-TESTING.xlsx (primary inventory) + CuratedFields-TEST.xlsx (entities), logo.png
+public/                CURATEDV2-TESTING.xlsx (primary inventory) + CuratedFields-TEST.xlsx (entities)
+                       + new-vals.xlsx (media-production tracker), logo.png, favicon.ico
 Discount Forklift Design System/   brand system + UI kit reference (not built by next)
 ```
 

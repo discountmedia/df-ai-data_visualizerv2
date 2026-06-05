@@ -13,6 +13,7 @@ import type {
   SchemaOverrides,
   EntitySet,
   FinancialSummary,
+  MediaProduction,
 } from "@/lib/types";
 import { parseSpreadsheet } from "@/lib/parseFile";
 import { inferSchemaClient } from "@/lib/inferSchemaClient";
@@ -20,6 +21,7 @@ import { heuristicSchema } from "@/lib/profile";
 import { mergeSources } from "@/lib/mergeSources";
 import { detectEntities } from "@/lib/entities";
 import { deriveFinancials } from "@/lib/deriveFinancials";
+import { deriveMediaProduction } from "@/lib/deriveMediaProduction";
 import { FINANCIALS_ENABLED } from "@/lib/features";
 import { makeSampleData } from "@/lib/sampleData";
 
@@ -40,6 +42,8 @@ interface State {
   schemaRefining: boolean;
   /** Gross-profit data from the fullnew export — loaded in the background, undefined until ready. */
   financials?: FinancialSummary;
+  /** Media-production status from the new-vals export — loaded in the background, undefined until ready. */
+  media?: MediaProduction;
 }
 
 type Action =
@@ -53,6 +57,7 @@ type Action =
   | { type: "SET_LOCATION"; location: string }
   | { type: "SET_TAB"; tab: string }
   | { type: "SET_FINANCIALS"; financials: FinancialSummary }
+  | { type: "SET_MEDIA"; media: MediaProduction }
   | { type: "BACK_TO_REVIEW" }
   | { type: "RESET" };
 
@@ -106,6 +111,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, activeTab: action.tab };
     case "SET_FINANCIALS":
       return { ...state, financials: action.financials };
+    case "SET_MEDIA":
+      return { ...state, media: action.media };
     case "BACK_TO_REVIEW":
       return { ...state, phase: "review" };
     case "RESET":
@@ -181,6 +188,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           .then((fn) => dispatch({ type: "SET_FINANCIALS", financials: deriveFinancials(fn) }))
           .catch(() => { /* financials are optional — the tab shows a notice if absent */ });
       }
+
+      // The media-production tracker (new-vals) powers the Media tab's pipeline
+      // counts. Small + optional, so load it in the background too — it must never
+      // delay the main dashboard, and the tab degrades gracefully if it's absent.
+      fetchSheet("/new-vals.xlsx", "new-vals.xlsx")
+        .then((mv) => dispatch({ type: "SET_MEDIA", media: deriveMediaProduction(mv) }))
+        .catch(() => { /* media-production data is optional */ });
 
       const [v2, v1] = await Promise.all([
         fetchSheet("/CURATEDV2-TESTING.xlsx", "CURATEDV2-TESTING.xlsx"),

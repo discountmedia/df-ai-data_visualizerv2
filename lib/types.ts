@@ -397,3 +397,50 @@ export interface FinancialSummary {
   gpDistribution: { label: string; count: number }[];
   notes: string[];
 }
+
+/* ----------------------------------------------------------------------------
+ * Media — content / marketing coverage. TWO sources, deliberately NOT joined:
+ *  1) Per-unit media (walkaround video + product-page URL) resolved from the
+ *     merged inventory export (UnitRecord.specs) — joinable + location-filterable.
+ *  2) The media-production tracker (new-vals.xlsx) — photo-edit / video-upload /
+ *     marketing-shoot statuses with NO unit key, so it is company-wide aggregate
+ *     ONLY (a positional join was tested against the shared video column and does
+ *     not hold). Deterministic; AI never touches it.
+ * ------------------------------------------------------------------------- */
+
+/** Per-yard media coverage (4 main yards + Other). */
+export interface MediaLocationCoverage {
+  name: string;
+  total: number;
+  withVideo: number;
+  withProductPage: number;
+  withBoth: number;
+  withNeither: number;
+}
+
+/** Per-unit media coverage rolled up from UnitRecord.specs (video + product page). */
+export interface MediaCoverage {
+  total: number;
+  withVideo: number;
+  withProductPage: number;
+  withBoth: number;
+  videoOnly: number;
+  pageOnly: number;
+  /** No walkaround video AND no product page — effectively invisible inventory. */
+  withNeither: number;
+  byLocation: MediaLocationCoverage[];
+}
+
+/** Aggregate media-production statuses from new-vals.xlsx (no per-unit key). */
+export interface MediaProduction {
+  available: boolean;
+  /** Rows tracked in the media-production export (no unit key — see deriveMediaProduction). */
+  tracked: number;
+  /** Rows whose photos are resized & edited. */
+  photosResized: number;
+  /** Rows with the final-sign-off walkaround video upload marked done. */
+  videoUploaded: number;
+  /** Rows still needing a marketing photo shoot. */
+  marketingShootNeeded: number;
+  notes: string[];
+}

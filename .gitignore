@@ -12,3 +12,7 @@ next-env.d.ts
 # and the public deploy while the Financials tab is hidden (lib/features.ts).
 # Restore public/fullnew.xlsx locally to re-enable.
 **/fullnew.xlsx
+
+# Excel lock/owner files (created when a workbook is open in Excel) — never commit.
+~$*.xlsx
+**/~$*.xlsx

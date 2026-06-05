@@ -38,7 +38,8 @@ export function StatCards({ items, cols = 3 }: { items: StatItem[]; cols?: numbe
           <>
             <div className="flex items-center justify-between">
               <p className="eyebrow">{it.label}</p>
-              <span className={cn("transition-colors", clickable ? "text-ink-dim group-hover:text-brand" : "text-ink-faint")}>→</span>
+              {/* The → is the drill-down affordance — only on cards that actually drill in. */}
+              {clickable && <span aria-hidden="true" className="text-ink-dim transition-colors group-hover:text-brand">→</span>}
             </div>
             <p className={cn("mt-2 font-display text-4xl leading-none tabular-nums",
               available ? ACCENT[it.accent ?? "ink"] : "text-ink-faint")}>
@@ -61,7 +62,7 @@ export function StatCards({ items, cols = 3 }: { items: StatItem[]; cols?: numbe
             </button>
           );
         }
-        return <div key={i} className="card card-hover p-4">{inner}</div>;
+        return <div key={i} className="card p-4">{inner}</div>;
       })}
     </div>
   );

@@ -12,9 +12,11 @@ import { SalesTeam } from "@/components/sales/SalesTeam";
 import { SalesNumbersView } from "@/components/financials/SalesNumbersView";
 import { WorkStageView } from "@/components/tabs/WorkStageView";
 import { OctaneView } from "@/components/tabs/OctaneView";
+import { MediaView } from "@/components/media/MediaView";
 import { LoadingState, ErrorState, EmptyState } from "@/components/states/States";
 import { deriveSales } from "@/lib/deriveSales";
 import { deriveUnits } from "@/lib/deriveUnits";
+import { deriveMedia, isListable } from "@/lib/deriveMedia";
 import { scoreUnits } from "@/lib/score";
 import { buildInsightsInput } from "@/lib/insightsClient";
 import { splitOctaneUnits } from "@/lib/octane";
@@ -24,7 +26,7 @@ import { FINANCIALS_ENABLED } from "@/lib/features";
 export default function Page() {
   const {
     phase, parsed, entities, schema, overrides, error, reset,
-    activeTab, setTab, locationFilter, loadAutoData, schemaRefining, financials,
+    activeTab, setTab, locationFilter, loadAutoData, schemaRefining, financials, media,
   } = useDashboard();
 
   // The header "AI Analysis" button opens a company-wide AI read in a modal popup
@@ -60,6 +62,10 @@ export default function Page() {
   // Work Stage covers only the 4 main yards — drop the dead "Other" pill there.
   const filterBar = current === "workstage" ? allLocBuckets.filter((l) => l.name !== "Other") : allLocBuckets;
   const overviewSnapshot = useMemo(() => bucketedLocations(dfFiltered), [dfFiltered]);
+  // Listable DF inventory across the full (unfiltered) fleet — the stable Media
+  // tab badge (matches the tab's "Listable Inventory" headline). The coverage
+  // cards + by-yard bars re-derive from the location filter inside MediaView.
+  const mediaAll = useMemo(() => deriveMedia(df.filter(isListable)), [df]);
   // Per-tab AI input for Overview (scoped to the current location filter).
   const overviewInput = useMemo(() => buildInsightsInput(scoring, dfFiltered, salesSummary), [scoring, dfFiltered, salesSummary]);
   // Company-wide AI input for the header modal — unfiltered DF fleet (every yard)
@@ -81,6 +87,7 @@ export default function Page() {
     { id: "overview", label: "Overview", count: df.length },
     { id: "workstage", label: "Work Stage", count: scoringAll.scoredCount },
     { id: "sales", label: "Sales Team", count: salesSummary ? salesSummary.totalSold : null },
+    { id: "media", label: "Media", count: mediaAll.total },
     // Financials tab is hidden until the owner gives the go-ahead (see lib/features.ts).
     ...(FINANCIALS_ENABLED ? [{ id: "financials", label: "Financials", count: financials?.available ? financials.gpCount : null }] : []),
     { id: "octane", label: "OCTANE", count: octane.length },
@@ -123,6 +130,7 @@ export default function Page() {
         )}
         {current === "workstage" && <WorkStageView units={workStageUnits} scoring={workStageScoring} />}
         {current === "sales" && (salesSummary ? <SalesTeam summary={salesSummary} /> : <EmptyState title="No sales data" />)}
+        {current === "media" && <MediaView units={dfFiltered} production={media} />}
         {FINANCIALS_ENABLED && current === "financials" && <SalesNumbersView financials={financials} />}
         {current === "octane" && <OctaneView units={octaneFiltered} />}
       </main>
