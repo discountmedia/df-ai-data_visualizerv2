@@ -78,7 +78,7 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
             <p className="eyebrow text-brand">Sales Team</p>
             <h1 className="mt-1 text-xl font-bold text-ink">Who&apos;s closing — and what&apos;s still open</h1>
           </div>
-          <span className="text-[11px] text-ink-faint">company-wide · not filtered by yard</span>
+          <span className="text-[13px] text-ink-faint">company-wide · not filtered by yard</span>
         </div>
 
         {/* KPI cards */}
@@ -121,22 +121,22 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
             <p className="eyebrow">Sales Team — Leaderboard</p>
             <div className="relative w-full sm:w-56">
-              <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
+              <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint">⌕</span>
               <input
                 aria-label="Search reps"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search rep or location…"
-                className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-dim focus:border-brand"
+                className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-[13px] text-ink placeholder:text-ink-dim focus:border-brand"
               />
               {q && (
                 <button onClick={() => setQ("")} aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-faint hover:text-ink">✕</button>
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint hover:text-ink">✕</button>
               )}
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] table-fixed text-left text-xs">
+            <table className="w-full min-w-[860px] table-fixed text-left text-[13px]">
               <colgroup>
                 <col style={{ width: "200px" }} />
                 <col style={{ width: "130px" }} />
@@ -192,7 +192,7 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
         {summary.notes.length > 0 && (
           <div className="card border-line p-3">
             {summary.notes.map((n, i) => (
-              <p key={i} className="text-[11px] text-ink-faint">· {n}</p>
+              <p key={i} className="text-[13px] text-ink-faint">· {n}</p>
             ))}
           </div>
         )}
@@ -227,7 +227,7 @@ function RosterSidebar({ reps, selected, onSelect }:
                 onClick={() => onSelect(active ? null : r.name)}
                 aria-pressed={active}
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors",
+                  "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-[13px] transition-colors",
                   active ? "bg-brand/10 text-ink" : "text-ink-dim hover:bg-panel-2 hover:text-ink"
                 )}
               >
@@ -248,11 +248,11 @@ function RosterCard({ rep, onClose }: { rep: SalesRep; onClose: () => void }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-ink">{rep.name}</p>
-          {rep.title && <p className="truncate text-[10px] text-ink-faint">{rep.title}</p>}
+          {rep.title && <p className="truncate text-[12px] text-ink-faint">{rep.title}</p>}
         </div>
-        <button onClick={onClose} aria-label="Close" className="shrink-0 text-xs text-ink-faint hover:text-ink">✕</button>
+        <button onClick={onClose} aria-label="Close" className="shrink-0 text-[13px] text-ink-faint hover:text-ink">✕</button>
       </div>
-      <dl className="mt-2.5 space-y-1.5 text-[11px]">
+      <dl className="mt-2.5 space-y-1.5 text-[13px]">
         <ContactRow k="Email" v={rep.email} href={rep.email ? `mailto:${rep.email}` : null} />
         <ContactRow k="Phone" v={rep.phone} />
         <ContactRow k="Location" v={rep.location} />
@@ -319,7 +319,7 @@ function SalesRace({ reps }: { reps: SalesRep[] }) {
     return (
       <section className="card p-4">
         <p className="eyebrow">Sales Race</p>
-        <p className="mt-3 text-[11px] text-ink-faint">No attributed units to race yet.</p>
+        <p className="mt-3 text-[13px] text-ink-faint">No attributed units to race yet.</p>
       </section>
     );
   }
@@ -327,18 +327,18 @@ function SalesRace({ reps }: { reps: SalesRep[] }) {
     <section className="card p-4">
       <div className="flex items-baseline justify-between">
         <p className="eyebrow">Sales Race — Units Sold</p>
-        <span className="text-[10px] text-ink-faint">top {ranked.length} reps</span>
+        <span className="text-[12px] text-ink-faint">top {ranked.length} reps</span>
       </div>
       <div className="mt-3 space-y-2">
         {ranked.map((r, i) => (
           <div key={r.name} className="flex items-center gap-2">
             <span className={cn(
-              "w-6 shrink-0 text-center text-xs tabular-nums",
+              "w-6 shrink-0 text-center text-[13px] tabular-nums",
               i === 0 ? "font-bold text-brand" : i < 3 ? "text-ink" : "text-ink-faint"
             )}>
               {i + 1}
             </span>
-            <span className="w-24 shrink-0 truncate text-xs text-ink-dim sm:w-36" title={r.name}>{r.name}</span>
+            <span className="w-24 shrink-0 truncate text-[13px] text-ink-dim sm:w-36" title={r.name}>{r.name}</span>
             <div className="relative h-5 flex-1 overflow-hidden rounded-sm bg-panel-2">
               <div
                 className={cn("h-full rounded-sm transition-[width] duration-700", i === 0 ? "bg-brand" : "bg-rent")}
@@ -346,7 +346,7 @@ function SalesRace({ reps }: { reps: SalesRep[] }) {
               />
             </div>
             <span className="w-9 shrink-0 text-right font-display text-base leading-none tabular-nums text-ink">{r.unitsSold}</span>
-            <span className="hidden w-20 shrink-0 text-right text-[11px] tabular-nums text-pif sm:inline">{fmtMoney(r.totalSale)}</span>
+            <span className="hidden w-20 shrink-0 text-right text-[13px] tabular-nums text-pif sm:inline">{fmtMoney(r.totalSale)}</span>
           </div>
         ))}
       </div>
@@ -376,17 +376,17 @@ function DealHealth({ units }: { units: SoldUnit[] }) {
 
       <div className="mt-3">
         <div className="flex items-baseline justify-between">
-          <span className="text-[11px] text-ink-dim">Signature rate</span>
+          <span className="text-[13px] text-ink-dim">Signature rate</span>
           <span className="font-display text-2xl leading-none tabular-nums text-ready">{signRate}%</span>
         </div>
         <div className="mt-1.5 h-2 overflow-hidden rounded-sm bg-panel-2">
           <div className="h-full bg-ready transition-[width] duration-700" style={{ width: `${signRate}%` }} />
         </div>
-        <p className="mt-1 text-[10px] text-ink-faint">{fmt(signed)} of {fmt(total)} attributed deals signed</p>
+        <p className="mt-1 text-[12px] text-ink-faint">{fmt(signed)} of {fmt(total)} attributed deals signed</p>
       </div>
 
       <div className="mt-4">
-        <p className="mb-1.5 text-[11px] text-ink-dim">Payment mix</p>
+        <p className="mb-1.5 text-[13px] text-ink-dim">Payment mix</p>
         <div className="flex h-2.5 overflow-hidden rounded-sm bg-panel-2">
           {PAY.map((p) => {
             const v = counts.get(p.key) ?? 0;
@@ -399,7 +399,7 @@ function DealHealth({ units }: { units: SoldUnit[] }) {
             const v = counts.get(p.key) ?? 0;
             if (!v) return null;
             return (
-              <span key={p.key} className="flex items-center gap-1 text-[10px]">
+              <span key={p.key} className="flex items-center gap-1 text-[12px]">
                 <span className={cn("inline-block h-2 w-2 rounded-sm", p.cls)} />
                 <span className="text-ink-dim">{p.label}</span>
                 <span className="tabular-nums text-ink-faint">{v}</span>
@@ -417,7 +417,7 @@ function Card({ label, value, accent, sub }: { label: string; value: string; acc
     <div className="card card-hover p-4">
       <p className="eyebrow">{label}</p>
       <p className={cn("mt-2 font-display text-4xl leading-none tabular-nums", accent)}>{value}</p>
-      <p className="mt-2 text-[11px] text-ink-faint">{sub}</p>
+      <p className="mt-2 text-[13px] text-ink-faint">{sub}</p>
     </div>
   );
 }
@@ -487,12 +487,12 @@ function RepRow({ rep, open, units, emailsAvailable, onToggle }:
         <tr id={detailId} className="border-b border-line/50">
           <td colSpan={7} className="bg-ground/40 px-4 py-3">
             {units.length === 0 ? (
-              <p className="text-[11px] text-ink-faint">No attributed units{rep.title ? ` · ${rep.title}` : ""}.</p>
+              <p className="text-[13px] text-ink-faint">No attributed units{rep.title ? ` · ${rep.title}` : ""}.</p>
             ) : (
               <div className="space-y-1">
                 <p className="eyebrow mb-2">What {rep.name} sold ({units.length})</p>
                 {units.slice(0, 30).map((u, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3 text-[11px]">
+                  <div key={i} className="flex items-center justify-between gap-3 text-[13px]">
                     <span className="text-ink">{[u.make, u.model, u.type].filter(Boolean).join(" · ") || "Unit"}</span>
                     <span className="flex items-center gap-3">
                       <span className="text-ink-dim">{u.customer ?? ""}</span>
@@ -520,7 +520,7 @@ function SalePill({ raw }: { raw: string | null }) {
     : /down/.test(s) ? "text-downpmt border-downpmt/40"
     : /govt|po/.test(s) ? "text-govt border-govt/40"
     : "text-ink-dim border-line";
-  return <span className={cn("border px-1.5 py-0.5 text-[10px] uppercase", cls)}>{raw}</span>;
+  return <span className={cn("border px-1.5 py-0.5 text-[12px] uppercase", cls)}>{raw}</span>;
 }
 
 function RoundRobinPanel({ summary }: { summary: SalesSummary }) {
@@ -529,20 +529,20 @@ function RoundRobinPanel({ summary }: { summary: SalesSummary }) {
       <div className="flex items-baseline justify-between">
         <p className="eyebrow">Round-Robin — Next Up</p>
         {summary.roundRobinAsOf && (
-          <span className="text-[10px] text-ink-faint">as of {summary.roundRobinAsOf}</span>
+          <span className="text-[12px] text-ink-faint">as of {summary.roundRobinAsOf}</span>
         )}
       </div>
       {summary.roundRobin.length === 0 ? (
-        <p className="mt-3 text-[11px] text-ink-faint">No round-robin queue data in this export.</p>
+        <p className="mt-3 text-[13px] text-ink-faint">No round-robin queue data in this export.</p>
       ) : (
         <div className="mt-3 space-y-2">
           {summary.roundRobin.map((q) => (
-            <div key={q.queue} className="flex items-center justify-between border-b border-line/40 pb-1.5 text-xs">
+            <div key={q.queue} className="flex items-center justify-between border-b border-line/40 pb-1.5 text-[13px]">
               <span className="text-ink-dim">{q.queue}</span>
               <span className="font-bold text-ink">{q.assignee ?? "—"}</span>
             </div>
           ))}
-          <p className="pt-1 text-[10px] text-ink-faint">Live pointer per queue — not a lead-distribution history.</p>
+          <p className="pt-1 text-[12px] text-ink-faint">Live pointer per queue — not a lead-distribution history.</p>
         </div>
       )}
     </section>
@@ -555,12 +555,12 @@ function LeadSourcesPanel({ summary }: { summary: SalesSummary }) {
     <section className="card p-4">
       <p className="eyebrow">Lead Sources</p>
       {summary.leadSources.length === 0 ? (
-        <p className="mt-3 text-[11px] text-ink-faint">No lead-source column detected.</p>
+        <p className="mt-3 text-[13px] text-ink-faint">No lead-source column detected.</p>
       ) : (
         <div className="mt-3 space-y-2">
           {summary.leadSources.map((l) => (
             <div key={l.source}>
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-[13px]">
                 <span className="truncate text-ink-dim" title={l.source}>{l.source}</span>
                 <span className="tabular-nums text-ink">{fmt(l.count)}</span>
               </div>
@@ -614,10 +614,10 @@ function UnsignedPanel({ units }: { units: SoldUnit[] }) {
     <section className="card overflow-hidden border-working/30">
       <div className="px-4 pt-4">
         <p className="eyebrow text-working">Unsigned PandaDocs — Chase These ({attributed.length})</p>
-        <p className="mt-1 text-[11px] text-ink-faint">Committed deals (down-payment / paid-in-full) with no signature on file. Govt POs, removed, and unattributed deals excluded.</p>
+        <p className="mt-1 text-[13px] text-ink-faint">Committed deals (down-payment / paid-in-full) with no signature on file. Govt POs, removed, and unattributed deals excluded.</p>
       </div>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-xs">
+        <table className="w-full min-w-[560px] text-left text-[13px]">
           <thead>
             <tr className="border-y border-line text-ink-dim">
               <Th label="Unit" k="unit" cur={sortKey} asc={asc} onSort={setSort} />

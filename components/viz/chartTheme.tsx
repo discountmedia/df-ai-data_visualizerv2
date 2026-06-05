@@ -14,7 +14,7 @@ export function ChartTip({
   if (!active || !payload?.length) return null;
   const f = money ? fmtMoney : fmt;
   return (
-    <div className="border border-line bg-panel-2 px-3 py-2 text-[11px] shadow-card">
+    <div className="border border-line bg-panel-2 px-3 py-2 text-[13px] shadow-card">
       {label != null && label !== "" && <p className="mb-1 font-bold text-ink">{label}</p>}
       {payload.map((p) => (
         <p key={String(p.name)} className="flex items-center gap-2 text-ink-dim">

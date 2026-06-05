@@ -17,7 +17,7 @@ export function DistributionBar({
         )}
       </div>
       {legend && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
           {segments.map((s) => (
             <span key={s.label} className="flex items-center gap-1 text-ink-dim">
               <span className={cn("inline-block h-2 w-2", s.cls)} />{s.label}

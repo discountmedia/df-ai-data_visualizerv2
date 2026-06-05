@@ -94,7 +94,7 @@ export function MetricTab({ category, units, schema, entities, parsed }: TabCont
           </ChartPanel>
         ) : (
           <ChartPanel title="Avg Discount off Retail by Make" height={290}>
-            <p className="text-xs text-ink-faint">Needs both Final and Retail price populated — not enough data in this file.</p>
+            <p className="text-[13px] text-ink-faint">Needs both Final and Retail price populated — not enough data in this file.</p>
           </ChartPanel>
         )}
         {hoursOk ? (
@@ -103,7 +103,7 @@ export function MetricTab({ category, units, schema, entities, parsed }: TabCont
           </ChartPanel>
         ) : (
           <ChartPanel title="Sale Price vs Engine Hours" height={290}>
-            <p className="text-xs text-ink-faint">Engine Hours column is sparse or absent in this file.</p>
+            <p className="text-[13px] text-ink-faint">Engine Hours column is sparse or absent in this file.</p>
           </ChartPanel>
         )}
       </div>

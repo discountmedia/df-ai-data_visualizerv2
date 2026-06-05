@@ -16,7 +16,7 @@ export function ChartPanel({
     <section className="card p-4">
       <div className="flex items-baseline justify-between gap-2">
         <p className="eyebrow">{title}</p>
-        {right ?? (hint && <span className="text-[10px] text-ink-faint">{hint}</span>)}
+        {right ?? (hint && <span className="text-[12px] text-ink-faint">{hint}</span>)}
       </div>
       <div
         className="mt-3 w-full"

@@ -7,7 +7,7 @@ export function AlertBanner({ openWorkOnSold }: { openWorkOnSold: MetricValue })
       <p className="flex items-center gap-2 text-sm font-bold text-brand">
         <span>⚠</span>{openWorkOnSold.value} sold units still need work completed
       </p>
-      <p className="mt-1 text-xs text-ink-dim">
+      <p className="mt-1 text-[13px] text-ink-dim">
         These are paid-in-full or contracted units that haven&apos;t been finished. These go first.
       </p>
     </div>

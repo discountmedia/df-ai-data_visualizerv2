@@ -35,7 +35,7 @@ export function SalesAI({
     <section className="card border-brand/30 bg-brand/5 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="eyebrow text-brand">Ask AI · Sales Team</p>
-        <span className="text-[10px] text-ink-faint">off by default · nothing sent until you click</span>
+        <span className="text-[12px] text-ink-faint">off by default · nothing sent until you click</span>
       </div>
       <div className="mt-3">
         <SummarizePanel category="Sales Team" stats={stats} siblings={["Overview", "Work Stage", "Location"]} />

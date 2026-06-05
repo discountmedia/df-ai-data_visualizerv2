@@ -44,7 +44,7 @@ export function StatCards({ items, cols = 3 }: { items: StatItem[]; cols?: numbe
               available ? ACCENT[it.accent ?? "ink"] : "text-ink-faint")}>
               {available ? display : "—"}
             </p>
-            <p className="mt-2 text-[11px] text-ink-faint">
+            <p className="mt-2 text-[13px] text-ink-faint">
               {available ? it.sub ?? "" : "Low confidence — column not mapped"}
             </p>
           </>

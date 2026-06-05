@@ -24,7 +24,7 @@ export function MetricCard({ label, metric, accent = "ink", subtext, onClick }:
         available ? ACCENT[accent] : "text-ink-faint")}>
         {available ? fmt(value) : "—"}
       </p>
-      <p className="mt-2 text-[11px] text-ink-faint">
+      <p className="mt-2 text-[13px] text-ink-faint">
         {available ? subtext ?? "" : "Low confidence — column not mapped"}
       </p>
     </>

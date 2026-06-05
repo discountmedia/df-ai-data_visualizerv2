@@ -6,10 +6,12 @@ import { MetricCard } from "./MetricCard";
 import { UnitsDrawer } from "./UnitsDrawer";
 import { AlertBanner } from "../AlertBanner";
 import { OverviewCharts } from "../charts/OverviewCharts";
+import { AiAnalysisCard } from "../insights/AiAnalysisCard";
 import { EmptyState } from "../states/States";
 import { DistributionBar } from "../viz/DistributionBar";
 import { fmt } from "@/lib/format";
 import { locationBucket } from "@/lib/location";
+import type { InsightsInput } from "@/lib/insightsClient";
 import type { LocationSnapshot, UnitRecord, WorkBucket, SaleBucket } from "@/lib/types";
 
 /**
@@ -17,7 +19,7 @@ import type { LocationSnapshot, UnitRecord, WorkBucket, SaleBucket } from "@/lib
  * location bar; `allLocations` (full, unfiltered) feeds the yard snapshot so it
  * always shows every yard.
  */
-export function OverviewGrid({ units, allLocations }: { units: UnitRecord[]; allLocations: LocationSnapshot[] }) {
+export function OverviewGrid({ units, allLocations, aiInput }: { units: UnitRecord[]; allLocations: LocationSnapshot[]; aiInput: InsightsInput }) {
   const m = useMemo(() => deriveMetrics(units), [units]);
   const [drill, setDrill] = useState<{ title: string; units: UnitRecord[] } | null>(null);
   if (units.length === 0) return <EmptyState title="No unit rows for this filter" />;
@@ -58,6 +60,11 @@ export function OverviewGrid({ units, allLocations }: { units: UnitRecord[]; all
           <MetricCard label="Open Work on Sold" metric={m.openWorkOnSold} accent="diag" subtext="Fix now" onClick={open("Open Work on Sold", openWorkUnits)} />
         </div>
 
+        <AiAnalysisCard
+          input={aiInput}
+          blurb="AI analysis is off by default — click Run to have Claude read this fleet (work stage, payment mix, priority queue) and surface what needs attention."
+        />
+
         <OverviewCharts units={units} />
 
         <LocationsSnapshot locations={allLocations} />
@@ -84,12 +91,12 @@ function LocationsSnapshot({ locations }: { locations: LocationSnapshot[] }) {
           <div key={l.name} className="card p-3">
             <div className="flex items-baseline justify-between">
               <span className="truncate text-sm font-bold text-ink">{l.name}</span>
-              <span className="text-[11px] text-ink-faint">{fmt(l.total)} units</span>
+              <span className="text-[13px] text-ink-faint">{fmt(l.total)} units</span>
             </div>
             <div className="mt-2">
               <DistributionBar segments={SEG.map((s) => ({ label: s.label, value: l[s.key] as number, cls: s.cls }))} legend />
             </div>
-            {l.sold > 0 && <p className="mt-1 text-[10px] text-ink-faint">Sold: {fmt(l.sold)}</p>}
+            {l.sold > 0 && <p className="mt-1 text-[12px] text-ink-faint">Sold: {fmt(l.sold)}</p>}
           </div>
         ))}
       </div>

@@ -38,7 +38,7 @@ export function Leaderboard<T>({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left text-[11px]" style={{ minWidth }}>
+      <table className="w-full text-left text-[13px]" style={{ minWidth }}>
         <thead>
           <tr className="border-b border-line text-ink-dim">
             {columns.map((c) => (
@@ -63,7 +63,7 @@ export function Leaderboard<T>({
         </tbody>
       </table>
       {maxRows && sorted.length > maxRows && (
-        <p className="mt-1 px-2 text-[10px] text-ink-faint">Showing top {maxRows} of {sorted.length}.</p>
+        <p className="mt-1 px-2 text-[12px] text-ink-faint">Showing top {maxRows} of {sorted.length}.</p>
       )}
     </div>
   );

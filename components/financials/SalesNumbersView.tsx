@@ -60,7 +60,7 @@ export function SalesNumbersView({ financials }: { financials?: FinancialSummary
           <p className="eyebrow text-brand">Financials</p>
           <h1 className="mt-1 text-xl font-bold text-ink">Sales numbers &amp; gross profit</h1>
         </div>
-        <span className="text-[11px] text-ink-faint">company-wide · OCTANE excluded</span>
+        <span className="text-[13px] text-ink-faint">company-wide · OCTANE excluded</span>
       </div>
 
       {/* Headline gross-profit KPIs */}
@@ -77,7 +77,7 @@ export function SalesNumbersView({ financials }: { financials?: FinancialSummary
       <section className="card p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="eyebrow">Company KPI Totals</h2>
-          <span className="text-[10px] text-ink-faint">fleet-wide figures from the sheet — shown as reported</span>
+          <span className="text-[12px] text-ink-faint">fleet-wide figures from the sheet — shown as reported</span>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
           <Mini label="Fleet Cost" value={fmtMoney(f.kpi.cost)} />
@@ -127,22 +127,22 @@ export function SalesNumbersView({ financials }: { financials?: FinancialSummary
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
           <h2 className="eyebrow">Per-Unit Gross Profit</h2>
           <div className="relative w-full sm:w-64">
-            <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
+            <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint">⌕</span>
             <input
               aria-label="Search financial units"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search serial, make, type, yard…"
-              className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-dim focus:border-brand"
+              className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-[13px] text-ink placeholder:text-ink-dim focus:border-brand"
             />
             {q && (
               <button onClick={() => setQ("")} aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-faint hover:text-ink">✕</button>
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint hover:text-ink">✕</button>
             )}
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-xs">
+          <table className="w-full min-w-[820px] text-left text-[13px]">
             <thead>
               <tr className="border-y border-line text-ink-dim">
                 <Th label="Make / unit" k="make" cur={sortKey} asc={asc} onSort={setSort} />
@@ -173,7 +173,7 @@ export function SalesNumbersView({ financials }: { financials?: FinancialSummary
 
       {f.notes.length > 0 && (
         <div className="card border-line p-3">
-          {f.notes.map((n, i) => <p key={i} className="text-[11px] text-ink-faint">· {n}</p>)}
+          {f.notes.map((n, i) => <p key={i} className="text-[13px] text-ink-faint">· {n}</p>)}
         </div>
       )}
     </div>
@@ -185,7 +185,7 @@ function Card({ label, value, accent, sub }: { label: string; value: string; acc
     <div className="card card-hover p-4">
       <p className="eyebrow">{label}</p>
       <p className={cn("mt-2 font-display text-3xl leading-none tabular-nums sm:text-4xl", accent)}>{value}</p>
-      <p className="mt-2 text-[11px] text-ink-faint">{sub}</p>
+      <p className="mt-2 text-[13px] text-ink-faint">{sub}</p>
     </div>
   );
 }
@@ -193,7 +193,7 @@ function Card({ label, value, accent, sub }: { label: string; value: string; acc
 function Mini({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-line bg-panel-2/40 p-3">
-      <p className="text-[10px] uppercase tracking-wider text-ink-faint">{label}</p>
+      <p className="text-[12px] uppercase tracking-wider text-ink-faint">{label}</p>
       <p className="mt-1 font-display text-2xl leading-none tabular-nums text-ink">{value}</p>
     </div>
   );
@@ -274,7 +274,7 @@ function GPRow({ u, open, onToggle }: { u: FinancialUnit; open: boolean; onToggl
 
 function Detail({ k, v }: { k: string; v: string | null }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 border-b border-line/30 py-1 text-[11px]">
+    <div className="flex items-baseline justify-between gap-2 border-b border-line/30 py-1 text-[13px]">
       <span className="shrink-0 text-ink-faint">{k}</span>
       <span className="tabular-nums text-ink-dim">{v && v !== "—" ? v : <span className="text-ink-faint">—</span>}</span>
     </div>

@@ -7,7 +7,9 @@ import { ReconPipeline } from "../viz/ReconPipeline";
 import { PriorityQueue } from "../priority/PriorityQueue";
 import { ReadinessLegend } from "../ReadinessLegend";
 import { UnitsDrawer } from "../overview/UnitsDrawer";
+import { AiAnalysisCard } from "../insights/AiAnalysisCard";
 import { EmptyState } from "../states/States";
+import { buildInsightsInput } from "@/lib/insightsClient";
 
 export function WorkStageView({ units, scoring }: { units: UnitRecord[]; scoring: ScoringResult }) {
   const counts = useMemo(() => {
@@ -16,6 +18,7 @@ export function WorkStageView({ units, scoring }: { units: UnitRecord[]; scoring
     return c;
   }, [units]);
   const [drill, setDrill] = useState<{ title: string; units: UnitRecord[] } | null>(null);
+  const aiInput = useMemo(() => buildInsightsInput(scoring, units, null), [scoring, units]);
 
   if (units.length === 0) {
     return (
@@ -47,6 +50,11 @@ export function WorkStageView({ units, scoring }: { units: UnitRecord[]; scoring
           { label: "On Rent", value: onRentUnits.length, accent: "rent", sub: "generating rental income", onClick: open("On Rent", onRentUnits) },
           { label: "$ Behind the Shop", value: committedOpenVal || null, money: true, accent: "pif", sub: `${committedOpen.length} committed but unfinished`, onClick: open("Behind the Shop — committed but unfinished", committedOpen) },
         ]} />
+
+        <AiAnalysisCard
+          input={aiInput}
+          blurb="AI analysis is off by default — click Run to have Claude read the service pipeline + priority queue and flag what to work next."
+        />
 
         <ReconPipeline counts={counts} />
 

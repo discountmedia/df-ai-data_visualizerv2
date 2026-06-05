@@ -15,7 +15,7 @@ export function StaffTab({ category, sales, entities, schema, parsed }: TabConte
       {sales ? (
         <SalesTeam summary={sales} />
       ) : (
-        <p className="text-xs text-ink-faint">No staff roster or sales attribution found in this file.</p>
+        <p className="text-[13px] text-ink-faint">No staff roster or sales attribution found in this file.</p>
       )}
       <TabAI category={category} entities={entities} schema={schema} parsed={parsed}
         stats={sales ? [

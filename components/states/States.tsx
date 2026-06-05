@@ -21,7 +21,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       <p className="mt-2 text-sm text-ink">{message}</p>
       {onRetry && (
         <button onClick={onRetry}
-          className="mt-4 border border-line px-4 py-1.5 text-xs uppercase tracking-wider text-ink-dim hover:border-brand hover:text-ink">
+          className="mt-4 border border-line px-4 py-1.5 text-[13px] uppercase tracking-wider text-ink-dim hover:border-brand hover:text-ink">
           Try again
         </button>
       )}
@@ -33,7 +33,7 @@ export function EmptyState({ title, hint, className }: { title: string; hint?: s
   return (
     <div className={cn("py-16 text-center", className)}>
       <p className="eyebrow">{title}</p>
-      {hint && <p className="mt-2 text-xs text-ink-faint">{hint}</p>}
+      {hint && <p className="mt-2 text-[13px] text-ink-faint">{hint}</p>}
     </div>
   );
 }

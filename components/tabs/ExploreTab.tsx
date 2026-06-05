@@ -13,7 +13,7 @@ export function ExploreTab({ category, entities, schema, parsed }: TabContext) {
     <div className="space-y-4 fade-up">
       <TabHeader category={category} />
       {src.rows.length === 0 ? (
-        <p className="text-xs text-ink-faint">No rows in the {category.label} table.</p>
+        <p className="text-[13px] text-ink-faint">No rows in the {category.label} table.</p>
       ) : (
         <>
           <section className="card border-brand/30 bg-brand/5 p-4">

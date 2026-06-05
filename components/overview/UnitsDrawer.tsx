@@ -102,31 +102,31 @@ export function UnitsDrawer({ title, units, onClose }: { title: string; units: U
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 border border-line px-3 py-1.5 text-[11px] uppercase tracking-wider text-ink-dim transition-colors hover:border-brand hover:text-ink"
+            className="shrink-0 border border-line px-3 py-1.5 text-[13px] uppercase tracking-wider text-ink-dim transition-colors hover:border-brand hover:text-ink"
           >
             ✕ Close
           </button>
         </div>
 
         <div className="relative my-3 w-full sm:w-80">
-          <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
+          <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint">⌕</span>
           <input
             autoFocus
             aria-label="Search units"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search unit, serial, make, customer…"
-            className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-dim focus:border-brand"
+            className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-[13px] text-ink placeholder:text-ink-dim focus:border-brand"
           />
           {q && (
             <button onClick={() => setQ("")} aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-faint hover:text-ink">✕</button>
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint hover:text-ink">✕</button>
           )}
         </div>
 
         <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-auto">
-            <table className="w-full min-w-[760px] text-left text-xs">
+            <table className="w-full min-w-[760px] text-left text-[13px]">
               <thead className="sticky top-0 z-10 bg-panel">
                 <tr className="border-b border-line text-ink-dim">
                   <SortHeader label="Serial" k="serial" cur={sortKey} asc={asc} onSort={onSort} />

@@ -62,7 +62,7 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
           <p className="flex items-center gap-2 text-sm font-bold text-brand">
             <span>⚠</span>{fmt(scoring.tierCounts.act_now)} units need action now
           </p>
-          <p className="mt-1 text-xs text-ink-dim">
+          <p className="mt-1 text-[13px] text-ink-dim">
             Committed-but-unfinished units lead the queue — a customer has paid or committed and the unit isn&apos;t deliverable. These go first.
           </p>
         </div>
@@ -85,18 +85,18 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
           ))}
         </div>
         <div className="relative ml-auto w-full sm:w-64">
-          <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">⌕</span>
+          <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint">⌕</span>
           <input
             aria-label="Search the priority queue"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search name, serial, make, customer…"
-            className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-xs text-ink placeholder:text-ink-dim focus:border-brand"
+            className="w-full border border-line bg-panel-2 py-1.5 pl-7 pr-7 text-[13px] text-ink placeholder:text-ink-dim focus:border-brand"
           />
           {q && (
             <button
               onClick={() => setQ("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-faint hover:text-ink"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint hover:text-ink"
               aria-label="Clear search"
             >
               ✕
@@ -108,7 +108,7 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <p className="eyebrow">Act-Now Queue — Ranked</p>
-          <p className="text-[11px] text-ink-faint">click a unit for its score breakdown & specs</p>
+          <p className="text-[13px] text-ink-faint">click a unit for its score breakdown & specs</p>
         </div>
         {shown.length === 0 ? (
           <p className="px-4 py-8 text-center text-[12px] text-ink-faint">
@@ -172,27 +172,27 @@ function PriorityRow({ rank, scored, open, onToggle }:
       }}
     >
       <div className="flex items-center gap-3">
-        <span className="w-8 shrink-0 text-right text-xs tabular-nums text-ink-faint">#{rank}</span>
+        <span className="w-8 shrink-0 text-right text-[13px] tabular-nums text-ink-faint">#{rank}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-ink-faint" aria-hidden="true">{open ? "▾" : "▸"}</span>
             <span className="truncate text-sm font-bold text-ink" title={title}>{title}</span>
             <TierPill tier={scored.tier} />
           </div>
-          <p className="mt-0.5 truncate text-[11px] text-ink-dim">{scored.action}</p>
+          <p className="mt-0.5 truncate text-[13px] text-ink-dim">{scored.action}</p>
         </div>
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          {u.location && <span className="text-[11px] text-ink-faint">{u.location}</span>}
+          {u.location && <span className="text-[13px] text-ink-faint">{u.location}</span>}
           <WorkPill work={u.work} />
           <SalePill sale={u.sale} />
         </div>
         <div className="hidden w-20 shrink-0 text-right sm:block">
           <span className="font-display text-base leading-none tabular-nums text-pif">{u.price != null ? fmtMoney(u.price) : "—"}</span>
-          <span className="block text-[9px] uppercase tracking-wide text-ink-faint">sale price</span>
+          <span className="block text-[12px] uppercase tracking-wide text-ink-faint">sale price</span>
         </div>
         <div className="w-14 shrink-0 text-right">
           <span className="font-display text-3xl leading-none tabular-nums text-ink">{scored.score}</span>
-          <span className="block text-[9px] uppercase tracking-wide text-ink-faint">score</span>
+          <span className="block text-[12px] uppercase tracking-wide text-ink-faint">score</span>
         </div>
       </div>
 
@@ -203,7 +203,7 @@ function PriorityRow({ rank, scored, open, onToggle }:
               <p className="eyebrow mb-2">How this score was built</p>
               <div className="space-y-1.5">
                 {scored.factors.map((f) => (
-                  <div key={f.key} className="flex items-start justify-between gap-3 text-[11px]">
+                  <div key={f.key} className="flex items-start justify-between gap-3 text-[13px]">
                     <div>
                       <span className="text-ink">{f.label}</span>
                       <p className="text-ink-faint">{f.detail}</p>
@@ -212,18 +212,18 @@ function PriorityRow({ rank, scored, open, onToggle }:
                   </div>
                 ))}
                 {rawSum > scored.score && (
-                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center justify-between text-[13px]">
                     <span className="text-ink-faint">Capped at 100</span>
                     <span className="tabular-nums text-ink-faint">−{rawSum - scored.score}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between border-t border-line/50 pt-1.5 text-[11px]">
+                <div className="flex items-center justify-between border-t border-line/50 pt-1.5 text-[13px]">
                   <span className="font-bold text-ink">Total</span>
                   <span className="tabular-nums font-bold text-ink">{scored.score}</span>
                 </div>
               </div>
             </div>
-            <div className="text-[11px] text-ink-dim">
+            <div className="text-[13px] text-ink-dim">
               <p className="eyebrow mb-2">Unit</p>
               <Detail k="Serial (last 4)" v={u.serial4 ?? u.serial} />
               <Detail k="Year" v={u.year} />
@@ -268,7 +268,7 @@ function UnitSpecsPanel({ u }: { u: UnitRecord }) {
       {measures.length > 0 && (
         <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-3">
           {measures.map((m) => (
-            <div key={m.k} className="flex items-baseline justify-between gap-2 border-b border-line/30 py-1 text-[11px]">
+            <div key={m.k} className="flex items-baseline justify-between gap-2 border-b border-line/30 py-1 text-[13px]">
               <span className="shrink-0 text-ink-faint">{m.k}</span>
               <span className="truncate text-right text-ink-dim" title={m.v!}>{m.v}</span>
             </div>
@@ -283,7 +283,7 @@ function UnitSpecsPanel({ u }: { u: UnitRecord }) {
               href={l.href!}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 border border-line px-2.5 py-1 text-[11px] text-brand transition-colors hover:border-brand"
+              className="inline-flex items-center gap-1 border border-line px-2.5 py-1 text-[13px] text-brand transition-colors hover:border-brand"
             >
               {l.k} ↗
             </a>
@@ -313,7 +313,7 @@ function SummaryCard({ label, value, accent, sub }: { label: string; value: stri
     <div className="card card-hover p-4">
       <p className="eyebrow">{label}</p>
       <p className={cn("mt-2 font-display text-4xl leading-none tabular-nums", accent)}>{value}</p>
-      <p className="mt-2 text-[11px] text-ink-faint">{sub}</p>
+      <p className="mt-2 text-[13px] text-ink-faint">{sub}</p>
     </div>
   );
 }
@@ -323,7 +323,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
     <button
       onClick={onClick}
       className={cn(
-        "border px-2.5 py-1.5 text-[11px] uppercase tracking-wider transition-colors",
+        "border px-2.5 py-1.5 text-[13px] uppercase tracking-wider transition-colors",
         active ? "border-brand text-ink" : "border-line text-ink-dim hover:text-ink"
       )}
     >

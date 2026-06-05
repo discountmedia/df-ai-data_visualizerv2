@@ -24,7 +24,7 @@ const SALE_ORDER: SaleBucket[] = ["paid_in_full", "down_payment", "govt_po", "re
 function ChartTip({ active, payload, label }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="border border-line bg-panel-2 px-3 py-2 text-[11px] shadow-card">
+    <div className="border border-line bg-panel-2 px-3 py-2 text-[13px] shadow-card">
       {label != null && <p className="mb-1 font-bold text-ink">{label}</p>}
       {payload.map((p) => (
         <p key={String(p.name)} className="flex items-center gap-2 text-ink-dim">
@@ -42,7 +42,7 @@ function Panel({ title, hint, ariaLabel, children }: { title: string; hint?: str
     <section className="card p-4">
       <div className="flex items-baseline justify-between">
         <p className="eyebrow">{title}</p>
-        {hint && <span className="text-[10px] text-ink-faint">{hint}</span>}
+        {hint && <span className="text-[12px] text-ink-faint">{hint}</span>}
       </div>
       <div className="mt-3 h-56 w-full" {...(ariaLabel ? { role: "img", "aria-label": ariaLabel } : null)}>{children}</div>
     </section>

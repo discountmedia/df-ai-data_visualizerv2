@@ -94,7 +94,7 @@ export function CategoryExplorer({ label, sourceKey, rows, columns, defaultDimen
           <p className="eyebrow text-brand">Explore · {label}</p>
           <h2 className="mt-0.5 text-sm font-bold text-ink">Find a connection in this data</h2>
         </div>
-        {onClose && <button onClick={onClose} className="text-[11px] uppercase tracking-wider text-ink-dim hover:text-ink">Close ✕</button>}
+        {onClose && <button onClick={onClose} className="text-[13px] uppercase tracking-wider text-ink-dim hover:text-ink">Close ✕</button>}
       </div>
 
       {/* AI-first: ask in plain English. */}
@@ -105,20 +105,20 @@ export function CategoryExplorer({ label, sourceKey, rows, columns, defaultDimen
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && ask()}
             placeholder="Ask: which salesman sells the most of which make? · total sale price by location · …"
-            className="flex-1 border border-line bg-ground px-3 py-2 text-xs text-ink placeholder:text-ink-dim focus:border-brand focus-visible:outline-none"
+            className="flex-1 border border-line bg-ground px-3 py-2 text-[13px] text-ink placeholder:text-ink-dim focus:border-brand focus-visible:outline-none"
           />
           <button
             onClick={ask}
             disabled={loading || !question.trim()}
-            className="bg-brand px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="bg-brand px-4 py-2 text-[13px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {loading ? "Thinking…" : "Find it ↗"}
           </button>
         </div>
-        {ai?.note && <p className="mt-2 text-[11px] text-working">{ai.note}</p>}
-        {ai?.error && <p className="mt-2 text-[11px] text-diag">{ai.error}</p>}
+        {ai?.note && <p className="mt-2 text-[13px] text-working">{ai.note}</p>}
+        {ai?.error && <p className="mt-2 text-[13px] text-diag">{ai.error}</p>}
         {ai?.narrative && ai.source === "claude" && (
-          <p className="mt-2 border-l-2 border-brand/50 pl-2 text-[11px] leading-relaxed text-ink-dim">
+          <p className="mt-2 border-l-2 border-brand/50 pl-2 text-[13px] leading-relaxed text-ink-dim">
             <span className="font-bold text-brand">AI</span> {ai.narrative}
           </p>
         )}
@@ -152,12 +152,12 @@ export function CategoryExplorer({ label, sourceKey, rows, columns, defaultDimen
 
       {/* Result */}
       {!result || result.rows.length === 0 ? (
-        <p className="mt-4 text-xs text-ink-faint">No values to chart for this selection.</p>
+        <p className="mt-4 text-[13px] text-ink-faint">No values to chart for this selection.</p>
       ) : (
         <div className="mt-4">
           <div className="flex items-baseline justify-between">
-            <p className="text-xs font-bold text-ink">{spec.title || chartTitle(spec)}</p>
-            <span className="text-[10px] text-ink-faint">{result.measureLabel} · {fmt(result.consideredRows)} rows</span>
+            <p className="text-[13px] font-bold text-ink">{spec.title || chartTitle(spec)}</p>
+            <span className="text-[12px] text-ink-faint">{result.measureLabel} · {fmt(result.consideredRows)} rows</span>
           </div>
           <div className="mt-2 h-[320px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -186,7 +186,7 @@ export function CategoryExplorer({ label, sourceKey, rows, columns, defaultDimen
 
           {/* Ranked table */}
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-[11px]">
+            <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="border-b border-line text-ink-dim">
                   <th className="px-2 py-1.5 font-normal">#</th>
@@ -209,7 +209,7 @@ export function CategoryExplorer({ label, sourceKey, rows, columns, defaultDimen
               </tbody>
             </table>
           </div>
-          {result.note && <p className="mt-2 text-[10px] text-ink-faint">{result.note}</p>}
+          {result.note && <p className="mt-2 text-[12px] text-ink-faint">{result.note}</p>}
         </div>
       )}
     </section>
@@ -243,7 +243,7 @@ function Select({
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       className={cn(
-        "w-full border border-line bg-ground px-2 py-1.5 text-xs text-ink focus:border-brand focus-visible:outline-none",
+        "w-full border border-line bg-ground px-2 py-1.5 text-[13px] text-ink focus:border-brand focus-visible:outline-none",
         disabled && "opacity-40"
       )}
     >

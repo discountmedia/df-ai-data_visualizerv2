@@ -27,6 +27,8 @@ export interface InsightsInput {
   }>;
   locations: Array<{ name: string; total: number; needs_diagnosis: number; working: number; ready: number; on_rent: number }>;
   sales: { totalSold: number; unsignedCount: number; activeReps: number; totalSales: number | null } | null;
+  /** OCTANE inventory count — surfaced only on the company-wide read so the model can note it. */
+  octaneCount?: number | null;
 }
 
 const STACK: WorkBucket[] = ["needs_diagnosis", "working", "ready", "on_rent"];
@@ -34,7 +36,8 @@ const STACK: WorkBucket[] = ["needs_diagnosis", "working", "ready", "on_rent"];
 export function buildInsightsInput(
   scoring: ScoringResult,
   units: UnitRecord[],
-  sales: SalesSummary | null
+  sales: SalesSummary | null,
+  opts?: { octaneCount?: number | null }
 ): InsightsInput {
   const workMix: Record<string, number> = {};
   const saleMix: Record<string, number> = {};
@@ -96,6 +99,7 @@ export function buildInsightsInput(
           totalSales: sales.reps.reduce((s, r) => s + (r.totalSale ?? 0), 0) || null,
         }
       : null,
+    octaneCount: opts?.octaneCount ?? null,
   };
 }
 
@@ -134,7 +138,7 @@ export async function fetchInsights(input: InsightsInput): Promise<InsightsResul
 /** Deterministic operational read used when AI is unavailable. */
 export function heuristicInsights(input: InsightsInput): { summary: string; insights: Insight[] } {
   const insights: Insight[] = [];
-  const { fleet, workMix, moneyAtRisk, locations, sales } = input;
+  const { fleet, workMix, moneyAtRisk, locations, sales, octaneCount } = input;
 
   if (fleet.actNow > 0) {
     const risk = moneyAtRisk != null ? ` ${fmtMoney(moneyAtRisk)} is tied up in finished-but-undelivered revenue.` : "";
@@ -178,6 +182,14 @@ export function heuristicInsights(input: InsightsInput): { summary: string; insi
       severity: "info",
       title: `${fmt(sales.totalSold)} units sold across ${fmt(sales.activeReps)} active reps`,
       body: sales.totalSales != null ? `${fmtMoney(sales.totalSales)} in attributed sales to date.` : `Attribution is from the 'sold by' field on unit rows.`,
+    });
+  }
+
+  if (octaneCount && octaneCount > 0) {
+    insights.push({
+      severity: "info",
+      title: `${fmt(octaneCount)} OCTANE units (tracked separately)`,
+      body: `OCTANE is a distinct part of the company, deliberately kept out of every Discount Forklift metric above.`,
     });
   }
 

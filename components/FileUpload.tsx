@@ -35,7 +35,7 @@ export function FileUpload() {
       >
         <span className="text-3xl text-ink-faint">↥</span>
         <p className="text-sm text-ink">Drag & drop, or <span className="text-brand">browse</span></p>
-        <p className="text-[11px] text-ink-faint">.xlsx · .xls · .csv</p>
+        <p className="text-[13px] text-ink-faint">.xlsx · .xls · .csv</p>
         <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) loadFile(f); }} />
       </div>
@@ -43,7 +43,7 @@ export function FileUpload() {
         <span className="h-px flex-1 bg-line" /><span className="eyebrow">or</span><span className="h-px flex-1 bg-line" />
       </div>
       <button onClick={loadSample}
-        className="mt-4 w-full border border-line py-2.5 text-xs uppercase tracking-wider text-ink-dim hover:border-brand hover:text-ink">
+        className="mt-4 w-full border border-line py-2.5 text-[13px] uppercase tracking-wider text-ink-dim hover:border-brand hover:text-ink">
         Load messy sample data (multi-table)
       </button>
     </div>

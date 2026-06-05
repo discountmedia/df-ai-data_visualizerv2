@@ -9,7 +9,7 @@ import {
 } from "@/lib/buckets";
 import type { WorkBucket, SaleBucket, PriorityTier } from "@/lib/types";
 
-const base = "inline-block whitespace-nowrap border px-1.5 py-0.5 text-[10px] uppercase tracking-wide";
+const base = "inline-block whitespace-nowrap border px-1.5 py-0.5 text-[12px] uppercase tracking-wide";
 
 export function WorkPill({ work }: { work: WorkBucket }) {
   if (work === "unknown") return <span className="text-ink-faint">—</span>;

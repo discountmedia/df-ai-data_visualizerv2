@@ -24,7 +24,7 @@ export function ScatterPanel({
   }
   const series = [...groups.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 7);
   const total = series.reduce((s, [, pts]) => s + pts.length, 0);
-  if (total === 0) return <p className="text-xs text-ink-faint">No numeric pairs to plot for {x} × {y}.</p>;
+  if (total === 0) return <p className="text-[13px] text-ink-faint">No numeric pairs to plot for {x} × {y}.</p>;
 
   const xf = (v: number) => (money?.x ? fmtMoney(v) : fmt(v));
   const yf = (v: number) => (money?.y ? fmtMoney(v) : fmt(v));

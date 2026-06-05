@@ -29,17 +29,17 @@ export function Header({
           <div className="flex min-w-0 items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Discount Forklift" className="h-5 w-auto shrink-0" />
-            <span className="hidden shrink-0 text-[11px] uppercase tracking-wider text-ink-dim sm:inline">Discount Forklift - Inventory Overview</span>
+            <span className="hidden shrink-0 text-[13px] uppercase tracking-wider text-ink-dim sm:inline">Discount Forklift - Inventory Overview</span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {refining && (
-              <span className="inline-flex items-center gap-1 border border-working/40 px-2 py-1 text-[10px] uppercase tracking-wider text-working">
+              <span className="inline-flex items-center gap-1 border border-working/40 px-2 py-1 text-[12px] uppercase tracking-wider text-working">
                 <span className="animate-pulse">⚡</span> refining
               </span>
             )}
             {onAnalyze && (
               <button onClick={onAnalyze}
-                className="flex items-center gap-1 bg-brand-strong px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90">
+                className="flex items-center gap-1 bg-brand-strong px-3 py-1 text-[13px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90">
                 ⚡ AI Analysis
               </button>
             )}
@@ -55,7 +55,7 @@ export function Header({
                 onClick={() => onTab(t.id)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs uppercase tracking-wider transition-colors",
+                  "flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] uppercase tracking-wider transition-colors",
                   active ? "border-brand text-ink" : "border-transparent text-ink-dim hover:text-ink"
                 )}
               >

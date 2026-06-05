@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { LocationBar } from "@/components/LocationBar";
 import { OverviewGrid } from "@/components/overview/OverviewGrid";
 import { InsightsTab } from "@/components/insights/InsightsTab";
+import { AiAnalysisModal } from "@/components/insights/AiAnalysisModal";
 import { SalesTeam } from "@/components/sales/SalesTeam";
 import { SalesNumbersView } from "@/components/financials/SalesNumbersView";
 import { WorkStageView } from "@/components/tabs/WorkStageView";
@@ -15,6 +16,7 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/states/States
 import { deriveSales } from "@/lib/deriveSales";
 import { deriveUnits } from "@/lib/deriveUnits";
 import { scoreUnits } from "@/lib/score";
+import { buildInsightsInput } from "@/lib/insightsClient";
 import { splitOctaneUnits } from "@/lib/octane";
 import { locationBucket, bucketedLocations } from "@/lib/location";
 import { FINANCIALS_ENABLED } from "@/lib/features";
@@ -25,9 +27,10 @@ export default function Page() {
     activeTab, setTab, locationFilter, loadAutoData, schemaRefining, financials,
   } = useDashboard();
 
-  // One-shot signal: the header "AI Analysis" button asks the Overview's Insights
-  // panel to run in place (no scroll/jump). InsightsTab clears it once it fires.
-  const [aiRun, setAiRun] = useState(false);
+  // The header "AI Analysis" button opens a company-wide AI read in a modal popup
+  // (overall: all locations + work stage + sales + OCTANE). Per-tab AI lives in
+  // each tab's own AiAnalysisCard.
+  const [overallAi, setOverallAi] = useState(false);
 
   // No upload splash — land straight in the bundled data (live, PRO pushes this).
   useEffect(() => {
@@ -57,6 +60,15 @@ export default function Page() {
   // Work Stage covers only the 4 main yards — drop the dead "Other" pill there.
   const filterBar = current === "workstage" ? allLocBuckets.filter((l) => l.name !== "Other") : allLocBuckets;
   const overviewSnapshot = useMemo(() => bucketedLocations(dfFiltered), [dfFiltered]);
+  // Per-tab AI input for Overview (scoped to the current location filter).
+  const overviewInput = useMemo(() => buildInsightsInput(scoring, dfFiltered, salesSummary), [scoring, dfFiltered, salesSummary]);
+  // Company-wide AI input for the header modal — unfiltered DF fleet (every yard)
+  // plus the OCTANE count, so the read spans all four tabs' worth of data.
+  const overallScoring = useMemo(() => scoreUnits(df), [df]);
+  const overallInput = useMemo(
+    () => buildInsightsInput(overallScoring, df, salesSummary, { octaneCount: octane.length }),
+    [overallScoring, df, salesSummary, octane.length]
+  );
 
   if (phase === "idle" || phase === "parsing") return <LoadingState label="Loading inventory…" />;
   if (phase === "inferring") return <LoadingState label="Inferring schema with AI…" />;
@@ -76,12 +88,9 @@ export default function Page() {
   // The location filter doesn't apply to Sales Team or Financials (both are
   // company-wide), so hide the bar there rather than leave a dead control.
   const showLocationBar = filterBar.length > 0 && current !== "sales" && current !== "financials";
-  // Run the analysis in place — surface the Overview's Insights panel and kick it
-  // off, but don't scroll/jump the user anywhere.
-  const onAnalyze = () => {
-    setTab("overview");
-    setAiRun(true);
-  };
+  // Header button → open the company-wide AI read in a modal (runs immediately).
+  // Stays on the current tab; the popup overlays everything.
+  const onAnalyze = () => setOverallAi(true);
 
   return (
     <div className="min-h-screen">
@@ -108,8 +117,8 @@ export default function Page() {
       <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl px-5 py-6 focus:outline-none">
         {current === "overview" && (
           <div className="space-y-8 fade-up">
-            {dfFiltered.length ? <OverviewGrid units={dfFiltered} allLocations={overviewSnapshot} /> : <EmptyState title="No units for this filter" />}
-            <div id="ai-insights"><InsightsTab scoring={scoring} units={dfFiltered} sales={salesSummary} runRequested={aiRun} onRunHandled={() => setAiRun(false)} /></div>
+            {dfFiltered.length ? <OverviewGrid units={dfFiltered} allLocations={overviewSnapshot} aiInput={overviewInput} /> : <EmptyState title="No units for this filter" />}
+            <InsightsTab scoring={scoring} />
           </div>
         )}
         {current === "workstage" && <WorkStageView units={workStageUnits} scoring={workStageScoring} />}
@@ -117,6 +126,9 @@ export default function Page() {
         {FINANCIALS_ENABLED && current === "financials" && <SalesNumbersView financials={financials} />}
         {current === "octane" && <OctaneView units={octaneFiltered} />}
       </main>
+      {overallAi && (
+        <AiAnalysisModal title="Fleet-wide AI Analysis" input={overallInput} onClose={() => setOverallAi(false)} />
+      )}
     </div>
   );
 }

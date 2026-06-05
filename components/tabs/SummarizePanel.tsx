@@ -18,26 +18,26 @@ export function SummarizePanel({
   if (!res) {
     return (
       <button onClick={run} disabled={loading}
-        className="bg-brand-strong px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+        className="bg-brand-strong px-4 py-2 text-[13px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90 disabled:opacity-50">
         {loading ? "Analyzing…" : "✦ Summarize this tab"}
       </button>
     );
   }
   return (
     <div className="space-y-2">
-      {res.note && <p className="text-[11px] text-working">{res.note}</p>}
-      <p className="text-xs leading-relaxed text-ink-dim">
+      {res.note && <p className="text-[13px] text-working">{res.note}</p>}
+      <p className="text-[13px] leading-relaxed text-ink-dim">
         <span className="font-bold text-brand">AI</span> {res.narrative}
       </p>
       {res.suggestedQuestions.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {res.suggestedQuestions.map((q, i) => (
-            <span key={i} className="border border-line px-2 py-1 text-[10px] text-ink-dim">{q}</span>
+            <span key={i} className="border border-line px-2 py-1 text-[12px] text-ink-dim">{q}</span>
           ))}
         </div>
       )}
       <button onClick={run} disabled={loading}
-        className="text-[10px] uppercase tracking-wider text-ink-faint hover:text-ink">
+        className="text-[12px] uppercase tracking-wider text-ink-faint hover:text-ink">
         {loading ? "…" : "↻ regenerate"}
       </button>
     </div>

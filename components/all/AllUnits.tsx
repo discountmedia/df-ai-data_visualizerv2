@@ -111,13 +111,13 @@ export function AllUnits({ units }: { units: UnitRecord[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search make / model / serial / customer…"
-          className="w-full max-w-xs border border-line bg-panel px-3 py-1.5 text-xs text-ink placeholder:text-ink-dim focus:border-brand focus-visible:outline-none sm:w-64"
+          className="w-full max-w-xs border border-line bg-panel px-3 py-1.5 text-[13px] text-ink placeholder:text-ink-dim focus:border-brand focus-visible:outline-none sm:w-64"
         />
         {locations.length > 0 && (
           <select
             value={loc}
             onChange={(e) => setLoc(e.target.value)}
-            className="border border-line bg-panel px-2 py-1.5 text-xs text-ink-dim focus:border-brand focus-visible:outline-none"
+            className="border border-line bg-panel px-2 py-1.5 text-[13px] text-ink-dim focus:border-brand focus-visible:outline-none"
           >
             <option value="ALL">All locations</option>
             {locations.map((l) => (
@@ -131,7 +131,7 @@ export function AllUnits({ units }: { units: UnitRecord[] }) {
             <FilterChip key={b} active={work === b} onClick={() => setWork(b)}>{WORK_LABEL[b]}</FilterChip>
           ))}
         </div>
-        <span className="ml-auto text-[11px] tabular-nums text-ink-faint">
+        <span className="ml-auto text-[13px] tabular-nums text-ink-faint">
           {fmt(filtered.length)} of {fmt(units.length)} units
         </span>
       </div>
@@ -139,10 +139,10 @@ export function AllUnits({ units }: { units: UnitRecord[] }) {
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <p className="eyebrow">All Units</p>
-          <p className="text-[11px] text-ink-faint">click a header to sort</p>
+          <p className="text-[13px] text-ink-faint">click a header to sort</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1120px] table-fixed text-left text-xs">
+          <table className="w-full min-w-[1120px] table-fixed text-left text-[13px]">
             <colgroup>
               <col style={{ width: "180px" }} />
               <col style={{ width: "90px" }} />
@@ -196,7 +196,7 @@ export function AllUnits({ units }: { units: UnitRecord[] }) {
           </table>
         </div>
         {filtered.length === 0 && (
-          <p className="px-4 py-8 text-center text-xs text-ink-faint">No units match these filters.</p>
+          <p className="px-4 py-8 text-center text-[13px] text-ink-faint">No units match these filters.</p>
         )}
       </section>
     </div>
@@ -208,7 +208,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
     <button
       onClick={onClick}
       className={cn(
-        "border px-2.5 py-1.5 text-[11px] uppercase tracking-wider transition-colors",
+        "border px-2.5 py-1.5 text-[13px] uppercase tracking-wider transition-colors",
         active ? "border-brand text-ink" : "border-line text-ink-dim hover:text-ink"
       )}
     >

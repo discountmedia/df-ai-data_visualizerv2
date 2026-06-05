@@ -35,7 +35,7 @@ export function ReconPipeline({ counts }: { counts: Map<WorkBucket, number> }) {
     <section className="card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="eyebrow">Service Pipeline</p>
-        <p className="text-[11px] text-ink-faint">
+        <p className="text-[13px] text-ink-faint">
           {total.toLocaleString()} units · intake → sale-ready → deployed
         </p>
       </div>
@@ -62,8 +62,8 @@ export function ReconPipeline({ counts }: { counts: Map<WorkBucket, number> }) {
           return (
             <div key={b} className="flex items-center gap-3">
               <div className="w-28 shrink-0 text-right sm:w-32">
-                <p className="text-xs font-bold text-ink">{WORK_LABEL[b]}</p>
-                <p className="hidden text-[10px] leading-tight text-ink-faint sm:block">{STAGE_NOTE[b]}</p>
+                <p className="text-[13px] font-bold text-ink">{WORK_LABEL[b]}</p>
+                <p className="hidden text-[12px] leading-tight text-ink-faint sm:block">{STAGE_NOTE[b]}</p>
               </div>
               <div className="relative h-6 flex-1 overflow-hidden rounded-sm bg-panel-2">
                 <div
@@ -71,14 +71,14 @@ export function ReconPipeline({ counts }: { counts: Map<WorkBucket, number> }) {
                   style={{ width: `${(v / max) * 100}%`, backgroundColor: WORK_HEX[b], opacity: 0.85 }}
                 />
                 {b === bottleneck && v > 0 && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold uppercase tracking-wider text-ink">
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] font-bold uppercase tracking-wider text-ink">
                     ◂ bottleneck
                   </span>
                 )}
               </div>
               <div className="w-16 shrink-0 text-right sm:w-20">
                 <span className="font-display text-lg leading-none tabular-nums text-ink">{v.toLocaleString()}</span>
-                <span className="ml-1 text-[10px] text-ink-faint">{pct(v)}%</span>
+                <span className="ml-1 text-[12px] text-ink-faint">{pct(v)}%</span>
               </div>
             </div>
           );
@@ -100,7 +100,7 @@ function Metric({ label, value, sub, accent }: { label: string; value: string; s
     <div>
       <p className="eyebrow">{label}</p>
       <p className={cn("mt-1 font-display text-xl leading-none tabular-nums sm:text-2xl", accent)}>{value}</p>
-      <p className="mt-1 text-[10px] text-ink-faint">{sub}</p>
+      <p className="mt-1 text-[12px] text-ink-faint">{sub}</p>
     </div>
   );
 }

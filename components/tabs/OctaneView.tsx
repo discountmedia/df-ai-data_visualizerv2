@@ -3,7 +3,10 @@
 import { useMemo } from "react";
 import type { UnitRecord, WorkBucket } from "@/lib/types";
 import { StatCards } from "../viz/StatCards";
+import { AiAnalysisCard } from "../insights/AiAnalysisCard";
 import { EmptyState } from "../states/States";
+import { scoreUnits } from "@/lib/score";
+import { buildInsightsInput } from "@/lib/insightsClient";
 
 /**
  * OCTANE is a separate part of the company — its team doesn't use this tool and
@@ -17,6 +20,7 @@ export function OctaneView({ units }: { units: UnitRecord[] }) {
     return c;
   }, [units]);
   const committed = units.filter((u) => u.committed).length;
+  const aiInput = useMemo(() => buildInsightsInput(scoreUnits(units), units, null), [units]);
 
   return (
     <div className="space-y-5 fade-up">
@@ -28,14 +32,20 @@ export function OctaneView({ units }: { units: UnitRecord[] }) {
         </p>
       </div>
       {units.length > 0 ? (
-        <StatCards cols={3} items={[
-          { label: "OCTANE Units", value: units.length, accent: "ink", sub: "total inventory" },
-          { label: "Committed", value: committed, accent: "pif", sub: "paid / deposit / PO" },
-          { label: "On Rent", value: counts.get("on_rent") ?? 0, accent: "rent", sub: "generating income" },
-          { label: "Ready", value: counts.get("ready") ?? 0, accent: "ready", sub: "prepped" },
-          { label: "In Service", value: (counts.get("working") ?? 0) + (counts.get("needs_diagnosis") ?? 0), accent: "working", sub: "being worked + needs diag" },
-          { label: "Sold", value: counts.get("sold") ?? 0, accent: "diag", sub: "closed" },
-        ]} />
+        <>
+          <StatCards cols={3} items={[
+            { label: "OCTANE Units", value: units.length, accent: "ink", sub: "total inventory" },
+            { label: "Committed", value: committed, accent: "pif", sub: "paid / deposit / PO" },
+            { label: "On Rent", value: counts.get("on_rent") ?? 0, accent: "rent", sub: "generating income" },
+            { label: "Ready", value: counts.get("ready") ?? 0, accent: "ready", sub: "prepped" },
+            { label: "In Service", value: (counts.get("working") ?? 0) + (counts.get("needs_diagnosis") ?? 0), accent: "working", sub: "being worked + needs diag" },
+            { label: "Sold", value: counts.get("sold") ?? 0, accent: "diag", sub: "closed" },
+          ]} />
+          <AiAnalysisCard
+            input={aiInput}
+            blurb="AI analysis is off by default — click Run to have Claude read OCTANE's inventory (kept separate from DF) and surface anything notable."
+          />
+        </>
       ) : (
         <EmptyState title="No OCTANE units in this view" />
       )}

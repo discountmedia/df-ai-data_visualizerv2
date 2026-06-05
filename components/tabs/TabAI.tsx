@@ -29,7 +29,7 @@ export function TabAI({
         <p className="eyebrow text-brand">Ask AI · {category.label}</p>
         {src.rows.length > 0 && (
           <button onClick={() => setOpen((o) => !o)}
-            className="text-[11px] uppercase tracking-wider text-ink-dim hover:text-brand">
+            className="text-[13px] uppercase tracking-wider text-ink-dim hover:text-brand">
             {open ? "Hide connections" : "Find connections ↗"}
           </button>
         )}
