@@ -9,14 +9,12 @@ export interface TabDef {
 }
 
 export function Header({
-  fileName,
   tabs,
   activeTab,
   onTab,
   onAnalyze,
   refining,
 }: {
-  fileName: string;
   tabs: TabDef[];
   activeTab: string;
   onTab: (id: string) => void;
@@ -31,8 +29,7 @@ export function Header({
           <div className="flex min-w-0 items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Discount Forklift" className="h-5 w-auto shrink-0" />
-            <span className="hidden shrink-0 text-[11px] uppercase tracking-wider text-ink-dim sm:inline">Inventory Dashboard</span>
-            <span className="hidden truncate text-[11px] text-ink-faint md:inline">— {fileName}</span>
+            <span className="hidden shrink-0 text-[11px] uppercase tracking-wider text-ink-dim sm:inline">Discount Forklift - Inventory Overview</span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {refining && (

@@ -22,6 +22,9 @@ const display = Anton({
 export const metadata: Metadata = {
   title: "Discount Forklift — Inventory Intelligence",
   description: "Operational dashboard for messy forklift inventory exports.",
+  // favicon.ico lives in /public; the ?v= busts the browser's aggressive
+  // favicon cache after the file is updated.
+  icons: { icon: "/favicon.ico?v=2" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

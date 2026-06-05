@@ -92,7 +92,6 @@ export default function Page() {
         Skip to content
       </a>
       <Header
-        fileName={parsed.fileName}
         tabs={tabs}
         activeTab={current}
         onTab={setTab}
