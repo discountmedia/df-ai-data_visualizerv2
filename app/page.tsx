@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDashboard } from "@/components/DashboardProvider";
 import { SchemaReview } from "@/components/SchemaReview";
 import { Header } from "@/components/Header";
@@ -24,6 +24,10 @@ export default function Page() {
     phase, parsed, entities, schema, overrides, error, reset,
     activeTab, setTab, locationFilter, loadAutoData, schemaRefining, financials,
   } = useDashboard();
+
+  // One-shot signal: the header "AI Analysis" button asks the Overview's Insights
+  // panel to run in place (no scroll/jump). InsightsTab clears it once it fires.
+  const [aiRun, setAiRun] = useState(false);
 
   // No upload splash — land straight in the bundled data (live, PRO pushes this).
   useEffect(() => {
@@ -72,10 +76,11 @@ export default function Page() {
   // The location filter doesn't apply to Sales Team or Financials (both are
   // company-wide), so hide the bar there rather than leave a dead control.
   const showLocationBar = filterBar.length > 0 && current !== "sales" && current !== "financials";
+  // Run the analysis in place — surface the Overview's Insights panel and kick it
+  // off, but don't scroll/jump the user anywhere.
   const onAnalyze = () => {
     setTab("overview");
-    const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setTimeout(() => document.getElementById("ai-insights")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }), 60);
+    setAiRun(true);
   };
 
   return (
@@ -88,12 +93,9 @@ export default function Page() {
       </a>
       <Header
         fileName={parsed.fileName}
-        unitCount={df.length}
-        source={schema.source}
         tabs={tabs}
         activeTab={current}
         onTab={setTab}
-        onReset={reset}
         onAnalyze={onAnalyze}
         refining={schemaRefining}
       />
@@ -108,7 +110,7 @@ export default function Page() {
         {current === "overview" && (
           <div className="space-y-8 fade-up">
             {dfFiltered.length ? <OverviewGrid units={dfFiltered} allLocations={overviewSnapshot} /> : <EmptyState title="No units for this filter" />}
-            <div id="ai-insights"><InsightsTab scoring={scoring} units={dfFiltered} sales={salesSummary} /></div>
+            <div id="ai-insights"><InsightsTab scoring={scoring} units={dfFiltered} sales={salesSummary} runRequested={aiRun} onRunHandled={() => setAiRun(false)} /></div>
           </div>
         )}
         {current === "workstage" && <WorkStageView units={workStageUnits} scoring={workStageScoring} />}

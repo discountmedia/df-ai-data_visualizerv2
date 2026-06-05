@@ -15,13 +15,19 @@ const SEVERITY: Record<InsightSeverity, { dot: string; label: string }> = {
 
 const TIERS: PriorityTier[] = ["act_now", "high", "medium", "low"];
 
-export function InsightsTab({ scoring, units, sales }:
-  { scoring: ScoringResult; units: UnitRecord[]; sales: SalesSummary | null }) {
+export function InsightsTab({ scoring, units, sales, runRequested, onRunHandled }:
+  { scoring: ScoringResult; units: UnitRecord[]; sales: SalesSummary | null; runRequested?: boolean; onRunHandled?: () => void }) {
   const input = useMemo(() => buildInsightsInput(scoring, units, sales), [scoring, units, sales]);
   const [result, setResult] = useState<InsightsResult | null>(null);
   const [loading, setLoading] = useState(false);
   // Opt-in: nothing is sent to any model until the operator clicks Run (nonce > 0).
   const [nonce, setNonce] = useState(0);
+
+  // The header "AI Analysis" button fires this one-shot — run in place, then clear it.
+  useEffect(() => {
+    if (runRequested) { onRunHandled?.(); setNonce((n) => n + 1); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runRequested]);
 
   useEffect(() => {
     if (nonce === 0) return;

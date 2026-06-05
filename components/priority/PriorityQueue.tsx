@@ -7,8 +7,6 @@ import { WorkPill, SalePill, TierPill } from "@/components/ui/Pills";
 import { Pager } from "@/components/ui/Pager";
 import { TIER_LABEL } from "@/lib/buckets";
 import { EmptyState } from "@/components/states/States";
-import { AiPriorityDrawer } from "./AiPriorityDrawer";
-import { buildPrioritizeInput, fetchPrioritized, type PrioritizeResult } from "@/lib/prioritizeClient";
 
 const TIERS: PriorityTier[] = ["act_now", "high", "medium", "low"];
 const PAGE = 25;
@@ -26,24 +24,6 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
   const [open, setOpen] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
-  // Opt-in AI re-ranking (owner-enabled; the deterministic queue stays the default).
-  const [aiOpen, setAiOpen] = useState(false);
-  const [aiResult, setAiResult] = useState<PrioritizeResult | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  // Invalidate the AI ranking when the queue itself changes (e.g. location filter).
-  useEffect(() => setAiResult(null), [scoring]);
-
-  const runAi = async () => {
-    setAiLoading(true);
-    const { input, pool } = buildPrioritizeInput(scoring);
-    const r = await fetchPrioritized(input, pool);
-    setAiResult(r);
-    setAiLoading(false);
-  };
-  const openAi = () => {
-    setAiOpen(true);
-    if (!aiResult && !aiLoading) void runAi();
-  };
 
   const rankOf = useMemo(() => {
     const m = new Map<ScoredUnit, number>();
@@ -87,13 +67,6 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
           </p>
         </div>
       )}
-
-      <button
-        onClick={openAi}
-        className="flex w-full items-center justify-center gap-2 border border-brand/40 bg-brand/5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-brand transition-colors hover:bg-brand/10"
-      >
-        <span aria-hidden="true">✦</span> AI Smart Priority — get clever
-      </button>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <SummaryCard label="In Queue" value={fmt(scoring.scoredCount)} accent="text-ink" sub={`of ${fmt(scoring.totalUnits)} units`} />
@@ -169,10 +142,6 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
           />
         )}
       </section>
-
-      {aiOpen && (
-        <AiPriorityDrawer result={aiResult} loading={aiLoading} onClose={() => setAiOpen(false)} onRegenerate={runAi} />
-      )}
     </div>
   );
 }

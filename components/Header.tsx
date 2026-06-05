@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/format";
 
 export interface TabDef {
@@ -11,40 +10,19 @@ export interface TabDef {
 
 export function Header({
   fileName,
-  unitCount,
-  source,
   tabs,
   activeTab,
   onTab,
-  onReset,
   onAnalyze,
   refining,
 }: {
   fileName: string;
-  unitCount: number;
-  source: "claude" | "heuristic";
   tabs: TabDef[];
   activeTab: string;
   onTab: (id: string) => void;
-  onReset: () => void;
   onAnalyze?: () => void;
   refining?: boolean;
 }) {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  useEffect(() => {
-    const saved = (localStorage.getItem("theme") as "dark" | "light" | null)
-      ?? (document.documentElement.dataset.theme as "dark" | "light" | undefined)
-      ?? "dark";
-    setTheme(saved);
-    document.documentElement.dataset.theme = saved;
-  }, []);
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem("theme", next);
-  };
-
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-ground/90 backdrop-blur">
       <div className="top-rule" />
@@ -62,27 +40,12 @@ export function Header({
                 <span className="animate-pulse">⚡</span> refining
               </span>
             )}
-            <span className="hidden items-center gap-2 text-[11px] text-ink-faint lg:flex">
-              <span>{unitCount.toLocaleString()} units</span>
-              <span className={cn("border px-1.5 py-0.5 uppercase",
-                source === "claude" ? "border-ready/40 text-ready" : "border-working/40 text-working")}>
-                {source === "claude" ? "AI" : "heuristic"}
-              </span>
-            </span>
-            <button onClick={toggleTheme}
-              className="border border-line px-2.5 py-1 text-[11px] uppercase tracking-wider text-ink-dim transition-colors hover:border-brand hover:text-ink">
-              {theme === "dark" ? "☀ Light" : "☾ Dark"}
-            </button>
             {onAnalyze && (
               <button onClick={onAnalyze}
                 className="flex items-center gap-1 bg-brand-strong px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90">
                 ⚡ AI Analysis
               </button>
             )}
-            <button onClick={onReset}
-              className="border border-line px-3 py-1 text-[11px] uppercase tracking-wider text-ink-dim transition-colors hover:border-brand hover:text-ink">
-              New file
-            </button>
           </div>
         </div>
 

@@ -167,17 +167,9 @@ both are gated behind a button.
    aggregated stats, never raw rows / customer PII.
 4. **Find connections** — `/api/connect` (Claude) → `PivotSpec`, computed
    deterministically by `lib/pivot.ts`. Part of the *legacy* explorer path.
-5. **AI Smart Priority** — `/api/prioritize` (Claude, `lib/prioritizeClient.ts` +
-   `components/priority/AiPriorityDrawer.tsx`). Opt-in "✦ AI Smart Priority — get
-   clever" button on the Work Stage queue: Claude **re-ranks** the top ~50 queued
-   units and gives a reason per unit. Falls back to the deterministic order with
-   no key. The unit data is real; AI only chooses the ORDER.
 
-**Hard rule: AI never computes a metric, and ranks units only in the explicitly
-opt-in "AI Smart Priority" drawer.** Every metric and the *default* priority queue
-(`lib/score.ts`) stay fully deterministic; the AI re-rank is a separate, button-
-gated view that never replaces the deterministic scores. (Owner-approved exception
-to the original "AI never ranks" rule.)
+**Hard rule: AI never computes numbers or ranks units.** Scoring and all metrics
+are deterministic; AI is a narrative/interpretation layer only.
 
 ## PRO integration (roadmapped — do not break the contract)
 

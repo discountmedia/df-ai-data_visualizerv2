@@ -214,42 +214,6 @@ export async function summarizeCategory(input: unknown): Promise<{ narrative: st
   return { narrative, suggestedQuestions };
 }
 
-const PRIORITIZE_SYSTEM = `You are a forklift-yard operations strategist. You receive units that are ALREADY in the work queue — each with a stable "ref" id, work stage, sale/commitment status, final sale price, location, and a deterministic priority score for context.
-
-Re-rank them by what the yard should work FIRST to unlock the most value and unblock the most work. Weigh, in your judgment: committed revenue at risk (a paid/committed unit that isn't deliverable is stuck money), high final sale price (finishing it frees more revenue), bottlenecks ("needs diagnosis" blocks everything downstream), quick wins, and batching by location. You MAY disagree with the deterministic score — that's the point.
-
-Return STRICT JSON ONLY (no prose, no markdown fences):
-{
-  "strategy": string,                 // 1-2 sentences: your overall prioritization approach
-  "order": [                          // EVERY supplied ref exactly once, highest priority FIRST
-    { "ref": number, "reason": string }   // reason: ONE short, specific sentence (cite stage / $ / commitment)
-  ]
-}
-
-Rules: list every ref from the input exactly once; never invent a ref; keep reasons concrete and grounded in the unit's real fields.`;
-
-export async function prioritizeUnits(input: unknown): Promise<{ strategy: string; order: { ref: number; reason: string }[] }> {
-  const client = getClient();
-  const msg = await client.messages.create({
-    model: MODEL,
-    max_tokens: 4096,
-    system: PRIORITIZE_SYSTEM,
-    messages: [{ role: "user", content: JSON.stringify(input) }],
-  });
-  const text = msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
-  const parsed = parseJson(text);
-  const strategy = typeof parsed.strategy === "string" ? parsed.strategy : "";
-  const order = Array.isArray(parsed.order)
-    ? parsed.order
-        .filter((o: unknown): o is Record<string, unknown> => !!o && typeof o === "object" && typeof (o as { ref?: unknown }).ref === "number")
-        .map((o: Record<string, unknown>) => ({ ref: Number(o.ref), reason: String(o.reason ?? "").trim() }))
-    : [];
-  return { strategy, order };
-}
-
 export function parseJson(text: string): Record<string, any> {
   const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
   try { return JSON.parse(cleaned); }
