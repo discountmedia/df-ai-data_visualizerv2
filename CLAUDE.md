@@ -99,12 +99,15 @@ CURATEDV2 + CuratedFields ─parse + mergeSources(Record UUID)→ ParsedFile ─
   (Denver/Las Vegas/Phoenix/DFW) + "Other"; the global `LocationBar` filters on it.
 - **`lib/categories.ts` / `categoryConfig.ts` / `pivot.ts`** power the *legacy*
   per-category router + "Find connections" explorer — **off the live render path**
-  now (the live nav is the fixed 4 tabs below). Keep, don't assume live.
+  now (the live nav is the fixed tab set below). Keep, don't assume live.
 
 ## Navigation / tabs
 
-`app/page.tsx` renders a **fixed five-tab** nav — **Overview · Work Stage ·
-Sales Team · Media · OCTANE** — not one-tab-per-category. (The old per-category router in
+`app/page.tsx` renders a **fixed tab** nav — **Overview · Work Stage ·
+Sales Team · Media · OCTANE · Admin** — not one-tab-per-category. (**Admin** is a
+**temporary** manual-CSV-upload tab — `components/admin/AdminUploads.tsx`, also at
+the `/admin` route — that goes away once FileMaker Pro posts a JSON payload to the
+backend; see "Data uploads (Neon)" below.) (The old per-category router in
 `lib/categoryConfig.ts` + `components/tabs/CategoryTab.tsx` + the `*Tab.tsx`
 layouts is **legacy and off the live render path**; keep but don't assume live.)
 
@@ -115,19 +118,25 @@ layouts is **legacy and off the live render path**; keep but don't assume live.)
   the *same* bucket `deriveMetrics` counts, so a card and its drawer can never disagree.
 - **Work Stage** (`components/tabs/WorkStageView.tsx`): the **service pipeline**
   (`components/viz/ReconPipeline.tsx` — journey bar + bottleneck call-out) +
-  readiness legend + priority queue. **Main yards only** — units bucketing to
-  "Other" are excluded (`dfMain` in `app/page.tsx`) and the "Other" location pill
-  is hidden here; an empty filter shows a clear empty state.
+  readiness legend + priority queue. **All yards incl. "Other"** (owner ask) —
+  shares Overview's location-filtered population + scoring; an empty filter shows a
+  clear empty state.
 - **Sales Team** (`components/sales/SalesTeam.tsx`): Roster sidebar (click a name
   → contact card: email/phone/location/units), Sales Race, Deal Close Health,
   Outreach-vs-Closes dual-axis chart, paginated leaderboard, round-robin,
-  unsigned-doc chase, + opt-in AI (`SalesAI`). **Company-wide** — the location bar
-  is hidden here.
+  unsigned-doc chase, + opt-in AI (`SalesAI`). **Location-filterable** (owner ask):
+  the global pill bar scopes the team to one yard **by each rep's home department**
+  (DENVER SALES → Denver, etc.); KPIs/leaderboard/roster/race recompute from the
+  in-scope reps. Round-robin + lead sources stay company-wide (queue/source totals,
+  not per-rep). `SalesTeam` takes a `locationFilter` prop and derives a scoped
+  `view` of the `SalesSummary` internally.
 - **Media** (`components/media/MediaView.tsx`): content-coverage command center.
   Two deliberately-separate sources. (1) Per-unit **coverage** — walkaround video +
   product-page URL from `UnitRecord.specs`, via `lib/deriveMedia.ts` — drives the
   clickable KPI cards (→ `MediaDrawer`, a sortable table with click-through
-  video/page links) + the by-yard bars, and honors the location filter. (2) The
+  video/page links) + the by-yard bars, and honors the location filter. Each yard
+  card's "**N with no media**" line is a button → `MediaDrawer` of exactly those
+  units for that yard. (2) The
   media-**production** pipeline (`public/new-vals.xlsx` → `lib/deriveMediaProduction.ts`)
   is shown as **company-wide counts only** — that export has **no unit key** (a
   positional join was tested and fails at ~4%), so it's explicitly labeled "not
@@ -149,8 +158,8 @@ layouts is **legacy and off the live render path**; keep but don't assume live.)
   unusable so "Date paid" is the time axis; OCTANE excluded from aggregates.)
 
 - A global **location-filter pill bar** (`LocationBar.tsx`) filters Overview +
-  Work Stage + Media + OCTANE — 4 yards (Denver/Las Vegas/Phoenix/DFW) + Other.
-  Hidden on Sales Team. Tab badges use *unfiltered* totals so they don't jump on
+  Work Stage + Sales Team + Media + OCTANE — 4 yards (Denver/Las Vegas/Phoenix/DFW)
+  + Other. Hidden on Financials + Admin. Tab badges use *unfiltered* totals so they don't jump on
   filter clicks. The nav tabs **and** this pill bar share one active treatment:
   brand-red underline + red active count (kept consistent on purpose).
 - Long lists paginate **25/page** via the shared `components/ui/Pager` (priority
@@ -163,6 +172,30 @@ layouts is **legacy and off the live render path**; keep but don't assume live.)
 **Dedup principle (still enforced):** each chart/view has exactly ONE home —
 Overview owns the headline distributions, Work Stage owns the pipeline + queue,
 Sales Team owns the rep board + chase list. Don't reintroduce a view on two tabs.
+
+## Data uploads (Neon) — temporary admin path
+
+Separate from the live dashboard render (which still auto-loads the bundled
+spreadsheets), the **Admin** tab / `/admin` route persists the daily report to
+**Neon Postgres**. This is a stopgap until **FileMaker Pro** posts a JSON payload
+to the backend directly.
+
+- **`lib/db.ts`** — `neon()` HTTP client (server-only; `DATABASE_URL`) + idempotent
+  `ensureSchema()` (`CREATE TABLE IF NOT EXISTS`, no migration step). Two tables:
+  `inventory_rows` (`inventory_id` PK · full row as **JSONB** · `content_hash` ·
+  audit fields) and `uploads` (`uploaded_by` default `Admin` · `uploaded_at` ·
+  counts · `source`).
+- **`lib/ingestCsv.ts`** — pure parse of CSV/xlsx → `{inventory_id, data, hash}`.
+  Key = the id parsed from the **`Product Server URL`** (`…/inventory/8265`); the
+  `Record UUID` is unusable (Excel mangles it to scientific notation). Rows with no
+  URL id are skipped; same-id rows within one file collapse (last wins).
+- **`app/api/upload/route.ts`** — `POST` upserts via `ON CONFLICT (inventory_id)
+  DO UPDATE … WHERE content_hash <> EXCLUDED.content_hash`: unchanged rows ignored,
+  changed updated, new inserted; counts recorded. `GET` returns last-upload + history.
+- **`components/admin/AdminUploads.tsx`** — the panel (no auth yet; open to anyone),
+  used by both the tab and the `/admin` route. Has a **Load test data** button that
+  seeds from the bundled `CURATEDV2-TESTING.xlsx`.
+- Requires `DATABASE_URL`; without it `/api/upload` returns a clear 503.
 
 ## Where AI is used (the business reads are opt-in)
 
@@ -255,7 +288,7 @@ tab + the drill-down drawer + light theme. Don't regress it:
 ```text
 app/
   layout.tsx            root layout — fonts (Inter + Anton), <ProBridge/>, provider
-  page.tsx              entry — auto-loads + merges data, fixed 4-tab nav, location filter
+  page.tsx              entry — auto-loads + merges data, fixed tab nav, location filter
   globals.css           design tokens (--ground/--panel/--ink…), grid texture, fade-up
   error.tsx / global-error.tsx   error boundaries (so a render error never black-screens)
   api/{infer-schema,insights,connect,summarize}/route.ts
@@ -284,7 +317,7 @@ Discount Forklift Design System/   brand system + UI kit reference (not built by
 
 Legacy but present: the per-category router (`tabs/CategoryTab.tsx` + `*Tab.tsx`),
 `components/explore/`, `components/FileUpload.tsx`, `lib/sampleData.ts`, and
-`components/all/AllUnits.tsx` are not wired into the live 4-tab nav; keep or
+`components/all/AllUnits.tsx` are not wired into the live tab nav; keep or
 reuse, don't assume they're live.
 
 ## Environment variables (set in Vercel)
@@ -293,6 +326,7 @@ reuse, don't assume they're live.
 | --- | --- |
 | `ANTHROPIC_API_KEY` | Claude — schema inference + insights + summarize + connect. Heuristic fallback without it. |
 | `ANTHROPIC_MODEL` | optional, default `claude-sonnet-4-6` |
+| `DATABASE_URL` | Neon Postgres connection string — powers the Admin CSV uploads (`/api/upload`). Without it the upload route returns a 503; the rest of the app is unaffected. |
 
 (The `XAI_*` / `OPENAI_*` keys are no longer used — the Grok/GPT second-opinion
 analyzers were removed. Safe to delete from Vercel.)

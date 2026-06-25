@@ -24,7 +24,7 @@ export function WorkStageView({ units, scoring }: { units: UnitRecord[]; scoring
     return (
       <EmptyState
         title="No units in the service pipeline for this view"
-        hint="Work Stage covers the 4 main yards (Denver / Las Vegas / Phoenix / DFW). Other locations aren't part of the service pipeline."
+        hint="No units match the current location filter."
       />
     );
   }

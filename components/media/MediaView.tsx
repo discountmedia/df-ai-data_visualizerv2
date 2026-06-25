@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { UnitRecord, MediaProduction, MediaLocationCoverage } from "@/lib/types";
 import { deriveMedia, isListable } from "@/lib/deriveMedia";
+import { locationBucket } from "@/lib/location";
 import { MetricCard } from "../overview/MetricCard";
 import { StatCards } from "../viz/StatCards";
 import { DistributionBar } from "../viz/DistributionBar";
@@ -78,7 +79,16 @@ export function MediaView({ units, production }: {
                     <DistributionBar segments={yardSegments(l)} legend />
                   </div>
                   {l.withNeither > 0 && (
-                    <p className="mt-1 text-[12px] text-diag">{fmt(l.withNeither)} with no media</p>
+                    <button
+                      type="button"
+                      onClick={open(
+                        `${l.name} — no video and no product page`,
+                        noMedia.filter((u) => locationBucket(u.location) === l.name)
+                      )}
+                      className="mt-1 text-left text-[12px] text-diag underline-offset-2 hover:underline focus-visible:underline"
+                    >
+                      {fmt(l.withNeither)} with no media
+                    </button>
                   )}
                 </div>
               ))}

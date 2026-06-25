@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SalesSummary, SalesRep, SoldUnit, SaleBucket } from "@/lib/types";
 import { cn, fmt, fmtMoney } from "@/lib/format";
+import { locationBucket } from "@/lib/location";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
@@ -15,7 +16,7 @@ import { SalesAI } from "./SalesAI";
 type SortKey = "unitsSold" | "totalSale" | "avgSale" | "emailsSent" | "unsignedDocs" | "name" | "location";
 const PAGE = 25;
 
-export function SalesTeam({ summary }: { summary: SalesSummary }) {
+export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesSummary; locationFilter?: string }) {
   const [sortKey, setSortKey] = useState<SortKey>("unitsSold");
   const [asc, setAsc] = useState(false);
   const [openRep, setOpenRep] = useState<string | null>(null);
@@ -26,18 +27,41 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
   // Snap to page 1 whenever the sort or search changes underfoot.
   useEffect(() => setPage(0), [sortKey, asc, q]);
 
-  const activeReps = summary.reps.filter((r) => r.unitsSold > 0).length;
-  const totalSaleVal = summary.reps.reduce((s, r) => s + (r.totalSale ?? 0), 0);
-  const avgSale = summary.totalSold > 0 ? Math.round(totalSaleVal / summary.totalSold) : null;
-  const allSold = useMemo(() => Object.values(summary.soldUnitsByRep).flat(), [summary.soldUnitsByRep]);
+  // Location tabs (owner ask): scope the team to one yard by each rep's home
+  // department (DENVER SALES -> Denver, etc.). Round-robin + lead sources stay
+  // company-wide — they're queue/source totals, not per-rep — so the panels that
+  // receive `view` simply get the unchanged values via the spread.
+  const scoped = locationFilter !== "ALL";
+  const view: SalesSummary = useMemo(() => {
+    if (!scoped) return summary;
+    const reps = summary.reps.filter((r) => locationBucket(r.location) === locationFilter);
+    const names = new Set(reps.map((r) => r.name));
+    const soldUnitsByRep: Record<string, SoldUnit[]> = {};
+    for (const [n, list] of Object.entries(summary.soldUnitsByRep)) if (names.has(n)) soldUnitsByRep[n] = list;
+    const unsignedWorklist = summary.unsignedWorklist.filter((u) => u.rep != null && names.has(u.rep));
+    return {
+      ...summary,
+      reps,
+      soldUnitsByRep,
+      unsignedWorklist,
+      unsignedCount: unsignedWorklist.length,
+      totalSold: reps.reduce((s, r) => s + r.unitsSold, 0),
+      totalEmails: reps.reduce((s, r) => s + (r.emailsSent ?? 0), 0),
+    };
+  }, [summary, scoped, locationFilter]);
+
+  const activeReps = view.reps.filter((r) => r.unitsSold > 0).length;
+  const totalSaleVal = view.reps.reduce((s, r) => s + (r.totalSale ?? 0), 0);
+  const avgSale = view.totalSold > 0 ? Math.round(totalSaleVal / view.totalSold) : null;
+  const allSold = useMemo(() => Object.values(view.soldUnitsByRep).flat(), [view.soldUnitsByRep]);
   const signedDeals = allSold.filter((u) => u.signed).length;
   const signRate = allSold.length ? Math.round((signedDeals / allSold.length) * 100) : 0;
 
   const sorted = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const rows = needle
-      ? summary.reps.filter((r) => `${r.name} ${r.location ?? ""}`.toLowerCase().includes(needle))
-      : summary.reps;
+      ? view.reps.filter((r) => `${r.name} ${r.location ?? ""}`.toLowerCase().includes(needle))
+      : view.reps;
     const dir = asc ? 1 : -1;
     return [...rows].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
@@ -48,18 +72,22 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
       }
       return ((num(a[sortKey] as number | null) - num(b[sortKey] as number | null)) * dir) || (b.unitsSold - a.unitsSold);
     });
-  }, [summary.reps, sortKey, asc, q]);
+  }, [view.reps, sortKey, asc, q]);
 
   const setSort = (k: SortKey) => {
     if (k === sortKey) setAsc(!asc);
     else { setSortKey(k); setAsc(k === "name" || k === "location"); }
   };
 
-  if (summary.reps.length === 0 && summary.totalSold === 0) {
+  if (view.reps.length === 0 && view.totalSold === 0) {
     return (
       <EmptyState
-        title="No sales data found"
-        hint="This export didn't yield a 'sold by' column or a staff roster to attribute sales."
+        title={scoped ? `No sales team in ${locationFilter}` : "No sales data found"}
+        hint={
+          scoped
+            ? "No reps are based in this yard. Switch the location filter to ALL to see the whole team."
+            : "This export didn't yield a 'sold by' column or a staff roster to attribute sales."
+        }
       />
     );
   }
@@ -78,27 +106,29 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
             <p className="eyebrow text-brand">Sales Team</p>
             <h1 className="mt-1 text-xl font-bold text-ink">Who&apos;s closing — and what&apos;s still open</h1>
           </div>
-          <span className="text-[13px] text-ink-faint">company-wide · not filtered by yard</span>
+          <span className="text-[13px] text-ink-faint">
+            {scoped ? `${locationFilter} · reps based in this yard` : "all yards"}
+          </span>
         </div>
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Card label="Total Sold" value={fmt(summary.totalSold)} accent="text-diag" sub="Attributed units" />
-          <Card label="Reps Active" value={fmt(activeReps)} accent="text-ink" sub={`${summary.reps.length} on team`} />
-          <Card label="Unsigned Docs" value={fmt(summary.unsignedCount)} accent="text-working" sub="Real open deals" />
+          <Card label="Total Sold" value={fmt(view.totalSold)} accent="text-diag" sub="Attributed units" />
+          <Card label="Reps Active" value={fmt(activeReps)} accent="text-ink" sub={`${view.reps.length} on team`} />
+          <Card label="Unsigned Docs" value={fmt(view.unsignedCount)} accent="text-working" sub="Real open deals" />
           <Card label="Avg Sale" value={fmtMoney(avgSale)} accent="text-ready" sub="Per unit" />
           <Card label="Total Sales $" value={fmtMoney(totalSaleVal || null)} accent="text-pif" sub="Attributed" />
           <Card
             label="Emails Sent"
-            value={summary.emailsAvailable ? fmt(summary.totalEmails) : "—"}
+            value={view.emailsAvailable ? fmt(view.totalEmails) : "—"}
             accent="text-rent"
-            sub={summary.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
+            sub={view.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
           />
         </div>
 
         {/* Opt-in AI analyzer — directly beneath the KPI cards */}
         <SalesAI
-          summary={summary}
+          summary={view}
           activeReps={activeReps}
           totalSaleVal={totalSaleVal}
           avgSale={avgSale}
@@ -109,12 +139,12 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
 
         {/* Engaging visuals */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <div className="lg:col-span-2"><SalesRace reps={summary.reps} /></div>
+          <div className="lg:col-span-2"><SalesRace reps={view.reps} /></div>
           <DealHealth units={allSold} />
         </div>
 
         {/* Emails vs units per rep */}
-        <EmailsChart summary={summary} />
+        <EmailsChart summary={view} />
 
         {/* Leaderboard (25 / page) */}
         <section className="card overflow-hidden">
@@ -168,8 +198,8 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
                       key={r.name}
                       rep={r}
                       open={openRep === r.name}
-                      units={summary.soldUnitsByRep[r.name] ?? []}
-                      emailsAvailable={summary.emailsAvailable}
+                      units={view.soldUnitsByRep[r.name] ?? []}
+                      emailsAvailable={view.emailsAvailable}
                       onToggle={() => setOpenRep(openRep === r.name ? null : r.name)}
                     />
                   ))
@@ -182,16 +212,16 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
 
         {/* Round robin + lead sources */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <RoundRobinPanel summary={summary} />
-          <LeadSourcesPanel summary={summary} />
+          <RoundRobinPanel summary={view} />
+          <LeadSourcesPanel summary={view} />
         </div>
 
         {/* Unsigned worklist */}
-        <UnsignedPanel units={summary.unsignedWorklist} />
+        <UnsignedPanel units={view.unsignedWorklist} />
 
-        {summary.notes.length > 0 && (
+        {view.notes.length > 0 && (
           <div className="card border-line p-3">
-            {summary.notes.map((n, i) => (
+            {view.notes.map((n, i) => (
               <p key={i} className="text-[13px] text-ink-faint">· {n}</p>
             ))}
           </div>
@@ -199,7 +229,7 @@ export function SalesTeam({ summary }: { summary: SalesSummary }) {
       </div>
 
       {/* Roster rail (left on desktop) */}
-      <RosterSidebar reps={summary.reps} selected={selected} onSelect={setSelected} />
+      <RosterSidebar reps={view.reps} selected={selected} onSelect={setSelected} />
     </div>
   );
 }

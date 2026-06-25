@@ -13,6 +13,7 @@ import { SalesNumbersView } from "@/components/financials/SalesNumbersView";
 import { WorkStageView } from "@/components/tabs/WorkStageView";
 import { OctaneView } from "@/components/tabs/OctaneView";
 import { MediaView } from "@/components/media/MediaView";
+import { AdminUploads } from "@/components/admin/AdminUploads";
 import { LoadingState, ErrorState, EmptyState } from "@/components/states/States";
 import { deriveSales } from "@/lib/deriveSales";
 import { deriveUnits } from "@/lib/deriveUnits";
@@ -50,17 +51,10 @@ export default function Page() {
   const dfFiltered = useMemo(() => byLoc(df), [df, locationFilter]);
   const octaneFiltered = useMemo(() => byLoc(octane), [octane, locationFilter]);
   const scoring = useMemo(() => scoreUnits(dfFiltered), [dfFiltered]);
-  // Work Stage covers only the 4 main yards (Denver / Las Vegas / Phoenix / DFW);
-  // misc/"Other" locations are excluded from the service pipeline + priority queue.
-  const dfMain = useMemo(() => df.filter((u) => locationBucket(u.location) !== "Other"), [df]);
-  const workStageUnits = useMemo(() => byLoc(dfMain), [dfMain, locationFilter]);
-  const workStageScoring = useMemo(() => scoreUnits(workStageUnits), [workStageUnits]);
-  // Unfiltered totals for the tab badges — keeps them from changing width (jumping)
-  // every time you click a location. Work Stage badge counts main-yard units only.
-  const scoringAll = useMemo(() => scoreUnits(dfMain), [dfMain]);
+  // Work Stage now spans every yard incl. "Other" (owner ask) — it shares the
+  // same location-filtered population + scoring as Overview.
   const allLocBuckets = useMemo(() => bucketedLocations(df), [df]);
-  // Work Stage covers only the 4 main yards — drop the dead "Other" pill there.
-  const filterBar = current === "workstage" ? allLocBuckets.filter((l) => l.name !== "Other") : allLocBuckets;
+  const filterBar = allLocBuckets;
   const overviewSnapshot = useMemo(() => bucketedLocations(dfFiltered), [dfFiltered]);
   // Listable DF inventory across the full (unfiltered) fleet — the stable Media
   // tab badge (matches the tab's "Listable Inventory" headline). The coverage
@@ -85,16 +79,20 @@ export default function Page() {
 
   const tabs = [
     { id: "overview", label: "Overview", count: df.length },
-    { id: "workstage", label: "Work Stage", count: scoringAll.scoredCount },
+    { id: "workstage", label: "Work Stage", count: overallScoring.scoredCount },
     { id: "sales", label: "Sales Team", count: salesSummary ? salesSummary.totalSold : null },
     { id: "media", label: "Media", count: mediaAll.total },
     // Financials tab is hidden until the owner gives the go-ahead (see lib/features.ts).
     ...(FINANCIALS_ENABLED ? [{ id: "financials", label: "Financials", count: financials?.available ? financials.gpCount : null }] : []),
     { id: "octane", label: "OCTANE", count: octane.length },
+    // Temporary admin tab for manual CSV uploads. Goes away once FileMaker Pro
+    // pushes a JSON payload to the backend directly.
+    { id: "admin", label: "Admin", count: null },
   ];
-  // The location filter doesn't apply to Sales Team or Financials (both are
-  // company-wide), so hide the bar there rather than leave a dead control.
-  const showLocationBar = filterBar.length > 0 && current !== "sales" && current !== "financials";
+  // The location filter applies to Overview, Work Stage, Sales Team, Media, and
+  // OCTANE. Financials is company-wide and Admin isn't location-scoped, so hide
+  // the bar there rather than leave a dead control.
+  const showLocationBar = filterBar.length > 0 && current !== "financials" && current !== "admin";
   // Header button → open the company-wide AI read in a modal (runs immediately).
   // Stays on the current tab; the popup overlays everything.
   const onAnalyze = () => setOverallAi(true);
@@ -128,11 +126,12 @@ export default function Page() {
             <InsightsTab scoring={scoring} />
           </div>
         )}
-        {current === "workstage" && <WorkStageView units={workStageUnits} scoring={workStageScoring} />}
-        {current === "sales" && (salesSummary ? <SalesTeam summary={salesSummary} /> : <EmptyState title="No sales data" />)}
+        {current === "workstage" && <WorkStageView units={dfFiltered} scoring={scoring} />}
+        {current === "sales" && (salesSummary ? <SalesTeam summary={salesSummary} locationFilter={locationFilter} /> : <EmptyState title="No sales data" />)}
         {current === "media" && <MediaView units={dfFiltered} production={media} />}
         {FINANCIALS_ENABLED && current === "financials" && <SalesNumbersView financials={financials} />}
         {current === "octane" && <OctaneView units={octaneFiltered} />}
+        {current === "admin" && <AdminUploads />}
       </main>
       {overallAi && (
         <AiAnalysisModal title="Fleet-wide AI Analysis" input={overallInput} onClose={() => setOverallAi(false)} />
