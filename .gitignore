@@ -16,3 +16,4 @@ next-env.d.ts
 # Excel lock/owner files (created when a workbook is open in Excel) — never commit.
 ~$*.xlsx
 **/~$*.xlsx
+.env*

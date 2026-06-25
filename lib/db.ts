@@ -14,11 +14,30 @@ import { neon } from "@neondatabase/serverless";
 
 let _sql: ReturnType<typeof neon> | null = null;
 
+/**
+ * Resolve the connection string from the env. The Neon–Vercel integration sets
+ * DATABASE_URL but also a set of aliases (and the Vercel-Postgres template uses
+ * POSTGRES_URL*), so accept the common names — pooled first, then unpooled — so
+ * this works no matter which the integration populated. The neon() HTTP driver
+ * is happy with either a pooled or a direct connection string.
+ */
+function resolveDbUrl(): string | undefined {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL_UNPOOLED ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.POSTGRES_PRISMA_URL ||
+    undefined
+  );
+}
+
 export function getSql() {
-  const url = process.env.DATABASE_URL;
+  const url = resolveDbUrl();
   if (!url) {
     throw new Error(
-      "DATABASE_URL is not configured. Add it in Vercel (and .env.local for local dev)."
+      "No Postgres connection string found. Expected DATABASE_URL (or POSTGRES_URL) " +
+        "from the Neon–Vercel integration. For local dev run `vercel env pull .env.local`."
     );
   }
   if (!_sql) _sql = neon(url);

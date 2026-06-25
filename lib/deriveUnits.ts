@@ -34,7 +34,15 @@ export function deriveUnits(
 
   const nameCol = usable(schema.conceptMap.unitName) ?? findColumn(cols, [/^name$/i, /unit\s*name/i]);
   const serialCol = usable(schema.conceptMap.serial) ?? findColumn(cols, [/serial/i, /\bvin\b/i, /asset/i]);
-  const locCol = usable(schema.conceptMap.location) ?? findColumn(cols, [/^location$/i, /branch|yard|site/i]);
+  // Location keys off the dedicated "FOB State" column first (owner ask: bucket
+  // by FOB state, not a looser city string — "Arlington, Virginia" must not fall
+  // into DFW). Pinning it here also keeps it stable when the AI schema refine
+  // would otherwise drift the location concept onto "FOB City and State"/"Warehouse".
+  // locationBucket() still maps these states (and rep departments) into the yards.
+  const locCol =
+    findColumn(cols, [/^fob\s*state$/i, /\bfob\b[^a-z]*state/i]) ??
+    usable(schema.conceptMap.location) ??
+    findColumn(cols, [/^location$/i, /branch|yard|site/i]);
   const workCol = usable(schema.conceptMap.workStage);
   const saleCol = usable(schema.conceptMap.saleType) ?? findColumn(cols, [/^sold!?$/i, /sale\s*type/i]);
   const signedCol = usable(schema.conceptMap.signed) ?? findColumn(cols, [/pandadoc.*sign/i, /\bsigned\b/i]);
