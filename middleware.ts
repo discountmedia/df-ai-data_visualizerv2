@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 import { verifyProToken, issueSession, verifySession } from "@/lib/authToken";
+import { logsAccounts, isAllowedAccount } from "@/lib/logsAuth";
 
 /**
  * Hosted-mode auth gate for the PRO (FileMaker) Web Viewer.
@@ -24,6 +25,8 @@ import { verifyProToken, issueSession, verifySession } from "@/lib/authToken";
 
 const COOKIE = "df_pro_session";
 const SESSION_TTL_SEC = 12 * 60 * 60; // a work session
+const LOGS_COOKIE = "df_logs_session";
+const LOGS_TTL_SEC = 8 * 60 * 60; // a logs-admin session
 
 function gateEnabled(): boolean {
   const secret = process.env.INVENTORY_ANALYSIS_SECRET;
@@ -117,20 +120,113 @@ function denied(reason: string): NextResponse {
   });
 }
 
+/**
+ * Logs-viewer access control — the SAME signed-token method as the FileMaker
+ * gate, plus an account allowlist (LOGS_ACCOUNTS). Every attempt is logged:
+ *   • logs.access.granted     (valid token + allowlisted account) — info
+ *   • logs.access.denied      (valid signature, account NOT allowlisted) — alert
+ *   • logs.signature.rejected (bad HMAC / wrong project / undecodable) — alert
+ *   • logs.token.denied       (stale/expired or half-present token) — warn
+ * On success, issues the df_logs_session cookie and strips the token from the URL.
+ */
+async function handleLogsAccess(req: NextRequest, ev: NextFetchEvent): Promise<NextResponse> {
+  const payload = req.nextUrl.searchParams.get("payload");
+  const signature = req.nextUrl.searchParams.get("signature");
+  // No token on the URL → let the page load; it checks the cookie and shows the
+  // access screen when there's no valid session.
+  if (!payload && !signature) return NextResponse.next();
+
+  const secret = process.env.INVENTORY_ANALYSIS_SECRET;
+  if (!secret || logsAccounts().size === 0) return NextResponse.next(); // logs auth not configured
+
+  const now = Date.now();
+  const res = await verifyProToken(secret, payload, signature, now);
+  if (!res.ok) {
+    const forged =
+      res.reason === "bad signature" || res.reason === "wrong project" || res.reason === "undecodable payload";
+    if (forged) {
+      // Tampered/forged logs token → ALWAYS refuse (never fall through to a cookie).
+      logAccess(req, ev, "logs.signature.rejected", "alert", `logs forged token refused: ${res.reason}`);
+      return denied(res.reason ?? "bad signature");
+    }
+    // Stale / half-present → the page will fall back to any valid logs cookie.
+    logAccess(req, ev, "logs.token.denied", "warn", `logs token not usable: ${res.reason ?? "invalid token"}`);
+    return NextResponse.next();
+  }
+  if (!isAllowedAccount(res.account)) {
+    logAccess(req, ev, "logs.access.denied", "alert", `logs access denied: account "${res.account ?? ""}" not in allowlist`);
+    return NextResponse.next();
+  }
+  // Granted → issue the logs session cookie and strip the token from the URL.
+  const url = req.nextUrl.clone();
+  url.searchParams.delete("payload");
+  url.searchParams.delete("signature");
+  const response = NextResponse.redirect(url);
+  const value = await issueSession(secret, res.account ?? "", LOGS_TTL_SEC, now);
+  response.cookies.set(LOGS_COOKIE, value, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: url.protocol === "https:",
+    path: "/",
+    maxAge: LOGS_TTL_SEC,
+  });
+  logAccess(req, ev, "logs.access.granted", "info", `logs access granted (account=${res.account})`);
+  return response;
+}
+
 export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
-  // The logs viewer + its APIs carry their own password, so they're exempt from
-  // the FileMaker gate. Return before any gate logic or access logging (this
-  // also prevents the /api/logs/ingest write from logging itself → no loop).
-  if (pathname.startsWith("/logs") || pathname.startsWith("/api/logs")) return NextResponse.next();
+  // Logs APIs check the df_logs_session cookie themselves; never gate/loop them
+  // (the /api/logs/ingest write would otherwise log itself).
+  if (pathname.startsWith("/api/logs")) return NextResponse.next();
+  // Logs viewer: its own signed-token access control (account allowlist),
+  // independent of the FileMaker gate.
+  if (pathname.startsWith("/logs")) return handleLogsAccess(req, ev);
 
   if (!gateEnabled()) return NextResponse.next();
 
   const secret = process.env.INVENTORY_ANALYSIS_SECRET as string;
   const now = Date.now();
 
-  // 1. Existing valid session → allow. A present cookie that fails the HMAC
-  //    check (not mere expiry) means a tampered/forged session → alert.
+  // 1. A token on the URL MUST be validated FIRST — a forged / bad-signature
+  //    token is rejected outright, even if the browser also carries a valid
+  //    session cookie. A cookie must never let a tampered token through.
+  const payload = req.nextUrl.searchParams.get("payload");
+  const signature = req.nextUrl.searchParams.get("signature");
+  if (payload || signature) {
+    const res = await verifyProToken(secret, payload, signature, now);
+    if (res.ok) {
+      const url = req.nextUrl.clone();
+      url.searchParams.delete("payload");
+      url.searchParams.delete("signature");
+      const response = NextResponse.redirect(url);
+      const value = await issueSession(secret, res.account ?? "", SESSION_TTL_SEC, now);
+      response.cookies.set(COOKIE, value, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: url.protocol === "https:",
+        path: "/",
+        maxAge: SESSION_TTL_SEC,
+      });
+      logAccess(req, ev, "gate.allow", "info", "allow: signed URL" + (res.account ? ` (account=${res.account})` : ""));
+      return response;
+    }
+    // Token present but not valid.
+    const forged =
+      res.reason === "bad signature" || res.reason === "wrong project" || res.reason === "undecodable payload";
+    if (forged) {
+      // Tampered/forged token → ALWAYS refuse; never fall back to a cookie.
+      logAccess(req, ev, "gate.signature.rejected", "alert", `forged token refused: ${res.reason}`);
+      return denied(res.reason ?? "bad signature");
+    }
+    // Genuinely-signed but stale (or half-present) token: log it, then fall
+    // through so a still-valid session cookie can carry the request (e.g. a
+    // refresh that re-loads an older signed URL). No cookie → denied below.
+    logAccess(req, ev, "gate.deny", "warn", `token not usable: ${res.reason ?? "invalid token"}`);
+  }
+
+  // 2. Fall back to an existing valid session cookie. A present cookie whose
+  //    HMAC fails (not mere expiry) is a tampered/forged session → alert.
   const cookie = req.cookies.get(COOKIE)?.value;
   if (cookie) {
     const sess = await verifySession(secret, cookie, now);
@@ -141,47 +237,10 @@ export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<
     if (sess.reason === "bad session signature") {
       logAccess(req, ev, "session.signature.rejected", "alert", "df_pro_session HMAC signature rejected (tampered/forged cookie)");
     }
-    // expired / other → fall through to the token path
   }
 
-  // 2. Fresh signed URL → verify, then set the session cookie and strip the token.
-  const payload = req.nextUrl.searchParams.get("payload");
-  const signature = req.nextUrl.searchParams.get("signature");
-  if (payload || signature) {
-    const res = await verifyProToken(secret, payload, signature, now);
-    if (!res.ok) {
-      // A presented token whose HMAC/project/decoding is rejected is a security
-      // signal → alert. A stale (but genuinely signed) or half-present token is
-      // benign → warn.
-      const sigRejected =
-        res.reason === "bad signature" || res.reason === "wrong project" || res.reason === "undecodable payload";
-      logAccess(
-        req,
-        ev,
-        sigRejected ? "gate.signature.rejected" : "gate.deny",
-        sigRejected ? "alert" : "warn",
-        res.reason ?? "invalid token"
-      );
-      return denied(res.reason ?? "invalid token");
-    }
-    const url = req.nextUrl.clone();
-    url.searchParams.delete("payload");
-    url.searchParams.delete("signature");
-    const response = NextResponse.redirect(url);
-    const value = await issueSession(secret, res.account ?? "", SESSION_TTL_SEC, now);
-    response.cookies.set(COOKIE, value, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: url.protocol === "https:",
-      path: "/",
-      maxAge: SESSION_TTL_SEC,
-    });
-    logAccess(req, ev, "gate.allow", "info", "allow: signed URL" + (res.account ? ` (account=${res.account})` : ""));
-    return response;
-  }
-
-  // 3. No session, no token.
-  logAccess(req, ev, "gate.deny", "warn", "no token presented");
+  // 3. No valid token, no valid session.
+  logAccess(req, ev, "gate.deny", "warn", "no valid token or session");
   return denied("no token");
 }
 

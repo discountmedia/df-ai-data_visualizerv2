@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySession } from "@/lib/authToken";
-import { logsConfigured, logsSigningKey } from "@/lib/logsAuth";
+import { logsConfigured, logsSigningKey, isAllowedAccount } from "@/lib/logsAuth";
 import { queryLogs, LOG_SORT_COLUMNS, type LogSortKey, type LogType } from "@/lib/logStore";
 import { safeLog } from "@/lib/apiLog";
 
@@ -16,6 +16,7 @@ const TYPES: (LogType | "all")[] = ["all", "auth", "performance", "error", "syst
 export async function GET(req: Request) {
   if (!logsConfigured()) return NextResponse.json({ error: "Logs login is not configured.", configured: false }, { status: 503 });
 
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
   const cookie = (await cookies()).get(COOKIE)?.value;
   if (cookie) {
     const sess = await verifySession(logsSigningKey(), cookie, Date.now());
@@ -23,16 +24,20 @@ export async function GET(req: Request) {
       // Present cookie whose HMAC is rejected = a tampered/forged logs session → alert.
       if (sess.reason === "bad session signature") {
         void safeLog({
-          type: "auth",
-          level: "alert",
-          name: "logs.session.rejected",
+          type: "auth", level: "alert", name: "logs.session.rejected",
           message: "Tampered logs session cookie (HMAC signature rejected)",
-          ip: (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown",
-          path: "/api/logs",
-          method: "GET",
-          userAgent: req.headers.get("user-agent"),
+          ip, path: "/api/logs", method: "GET", userAgent: req.headers.get("user-agent"),
         });
       }
+      return NextResponse.json({ error: "Not authorized." }, { status: 401 });
+    }
+    if (!isAllowedAccount(sess.account)) {
+      // Valid session, but the account was removed from the allowlist → revoked.
+      void safeLog({
+        type: "auth", level: "alert", name: "logs.access.revoked",
+        message: `Logs session for "${sess.account ?? ""}" rejected: account no longer in allowlist`,
+        ip, path: "/api/logs", method: "GET", account: sess.account, userAgent: req.headers.get("user-agent"),
+      });
       return NextResponse.json({ error: "Not authorized." }, { status: 401 });
     }
   } else {

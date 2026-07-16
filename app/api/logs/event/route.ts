@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySession } from "@/lib/authToken";
-import { logsSigningKey, logsConfigured } from "@/lib/logsAuth";
+import { logsSigningKey, logsConfigured, isAllowedAccount } from "@/lib/logsAuth";
 import { safeLog } from "@/lib/apiLog";
 
 export const runtime = "nodejs";
@@ -20,7 +20,10 @@ async function authorized(): Promise<boolean> {
   const proCookie = store.get("df_pro_session")?.value;
   if (proSecret && proCookie && (await verifySession(proSecret, proCookie, now)).ok) return true;
   const logsCookie = store.get("df_logs_session")?.value;
-  if (logsConfigured() && logsCookie && (await verifySession(logsSigningKey(), logsCookie, now)).ok) return true;
+  if (logsConfigured() && logsCookie) {
+    const s = await verifySession(logsSigningKey(), logsCookie, now);
+    if (s.ok && isAllowedAccount(s.account)) return true;
+  }
   return false;
 }
 

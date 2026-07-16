@@ -1,65 +1,40 @@
-import { hmacHex, timingSafeEqualHex } from "./authToken";
-
 /**
- * Logs-viewer credentials. Server-only.
+ * Logs-viewer access control. Server + Edge safe (env only — no DB, no bcrypt).
  *
- * Multi-user via `LOGS_USERS` — comma-separated `username:password` pairs, e.g.
- *   LOGS_USERS="stephen:pass1,matt:pass2"
- * Each pair splits on the FIRST colon, so a password may contain colons; avoid
- * commas in passwords (they separate users). Usernames are case-insensitive.
+ * Access uses the SAME signed-token method as the FileMaker gate: a URL carrying
+ *   ?payload=<base64url(inventory-analysis|<utcMillis>|<account>)>&signature=<hmac>
+ * signed with INVENTORY_ANALYSIS_SECRET. The token is verified (verifyProToken in
+ * lib/authToken), and the ACCOUNT must be in the LOGS_ACCOUNTS allowlist. There
+ * are no usernames/passwords.
  *
- * Falls back to a single shared password via `LOGS_PASSWORD` (username ignored)
- * when `LOGS_USERS` isn't set. Passwords are compared in constant time.
+ *   LOGS_ACCOUNTS = comma-separated account names, e.g. "matt" or "matt,stephen".
+ *   Case-insensitive. Requires INVENTORY_ANALYSIS_SECRET to be set (to verify).
+ *
+ * The df_logs_session cookie issued after a valid token is signed with the same
+ * shared secret; every request re-checks the account is still allowlisted, so
+ * removing a name from LOGS_ACCOUNTS revokes existing sessions.
  */
 
-export function logsUsers(): Map<string, string> {
-  const raw = process.env.LOGS_USERS;
-  const map = new Map<string, string>();
-  if (!raw) return map;
-  for (const pair of raw.split(",")) {
-    const t = pair.trim();
-    const idx = t.indexOf(":");
-    if (idx < 1) continue; // need a non-empty username before the colon
-    const user = t.slice(0, idx).trim().toLowerCase();
-    const pass = t.slice(idx + 1); // keep verbatim (may contain ':')
-    if (user) map.set(user, pass);
+export function logsAccounts(): Set<string> {
+  const set = new Set<string>();
+  for (const a of (process.env.LOGS_ACCOUNTS || "").split(",")) {
+    const t = a.trim().toLowerCase();
+    if (t) set.add(t);
   }
-  return map;
+  return set;
 }
 
+export function isAllowedAccount(account: string | null | undefined): boolean {
+  if (!account) return false;
+  return logsAccounts().has(account.trim().toLowerCase());
+}
+
+/** Logs auth needs both an allowlist AND the shared secret (to verify tokens). */
 export function logsConfigured(): boolean {
-  return !!process.env.LOGS_USERS || !!process.env.LOGS_PASSWORD;
+  return logsAccounts().size > 0 && !!process.env.INVENTORY_ANALYSIS_SECRET;
 }
 
-/** True when named users are in use (login should show a username field). */
-export function logsMultiUser(): boolean {
-  return !!process.env.LOGS_USERS && logsUsers().size > 0;
-}
-
-/** Stable server-only key for signing the logs session cookie. */
+/** The logs session cookie is signed with the shared secret. */
 export function logsSigningKey(): string {
-  return process.env.LOGS_USERS || process.env.LOGS_PASSWORD || "";
-}
-
-const LABEL = "df-logs-login";
-async function ctEqual(a: string, b: string): Promise<boolean> {
-  // Compare via HMAC(value, label) so the compare is constant-time and length-safe.
-  return timingSafeEqualHex(await hmacHex(a, LABEL), await hmacHex(b, LABEL));
-}
-
-export async function verifyCredentials(username: string, password: string): Promise<{ ok: boolean; account?: string }> {
-  const users = logsUsers();
-  if (users.size > 0) {
-    const stored = users.get(username.trim().toLowerCase());
-    if (stored == null) {
-      await ctEqual("\0nouser", password); // equalize timing; never reveal user existence
-      return { ok: false };
-    }
-    return { ok: await ctEqual(stored, password), account: username.trim() };
-  }
-  const single = process.env.LOGS_PASSWORD;
-  if (single) {
-    return { ok: await ctEqual(single, password), account: username.trim() || "logs-admin" };
-  }
-  return { ok: false };
+  return process.env.INVENTORY_ANALYSIS_SECRET || "";
 }

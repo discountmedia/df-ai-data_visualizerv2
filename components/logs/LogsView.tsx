@@ -43,11 +43,7 @@ function markSeen() {
 }
 
 export function LogsView() {
-  const [phase, setPhase] = useState<"checking" | "login" | "ready" | "unconfigured">("checking");
-  const [multiUser, setMultiUser] = useState(false);
-  const [username, setUsername] = useState("");
-  const [pw, setPw] = useState("");
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"checking" | "needlink" | "ready" | "unconfigured">("checking");
 
   // Query state
   const [type, setType] = useState<string>("all");
@@ -67,12 +63,11 @@ export function LogsView() {
   useEffect(() => {
     fetch("/api/logs/auth")
       .then((r) => r.json())
-      .then((d: { configured: boolean; authed: boolean; multiUser?: boolean }) => {
-        setMultiUser(!!d.multiUser);
+      .then((d: { configured: boolean; authed: boolean }) => {
         if (!d.configured) setPhase("unconfigured");
-        else setPhase(d.authed ? "ready" : "login");
+        else setPhase(d.authed ? "ready" : "needlink");
       })
-      .catch(() => setPhase("login"));
+      .catch(() => setPhase("needlink"));
   }, []);
 
   const load = useCallback(async () => {
@@ -82,7 +77,7 @@ export function LogsView() {
       const params = new URLSearchParams({ type, sort, order: asc ? "asc" : "desc", page: String(page) });
       if (q.trim()) params.set("q", q.trim());
       const res = await fetch(`/api/logs?${params}`);
-      if (res.status === 401) { setPhase("login"); return; }
+      if (res.status === 401) { setPhase("needlink"); return; }
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Could not load logs."); setRows([]); setTotal(0); return; }
       setRows(data.rows ?? []);
@@ -105,27 +100,9 @@ export function LogsView() {
 
   useEffect(() => { setPage(0); }, [type, sort, asc, q]);
 
-  async function submitLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setLoginError(null);
-    try {
-      const res = await fetch("/api/logs/auth", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password: pw }),
-      });
-      const data = await res.json();
-      if (res.ok) { setPw(""); setUsername(""); setPhase("ready"); }
-      else if (res.status === 503) { setPhase("unconfigured"); }
-      else setLoginError(data.error ?? "Incorrect password.");
-    } catch {
-      setLoginError("Network error.");
-    }
-  }
-
   async function logout() {
     await fetch("/api/logs/auth", { method: "DELETE" }).catch(() => {});
-    setPhase("login");
+    setPhase("needlink");
     setRows([]);
   }
 
@@ -143,50 +120,26 @@ export function LogsView() {
       <div className="mx-auto max-w-md py-16 text-center">
         <p className="eyebrow text-working">Logs not configured</p>
         <p className="mt-2 text-[13px] text-ink-faint">
-          Set <code className="text-ink-dim">LOGS_PASSWORD</code> and <code className="text-ink-dim">DATABASE_URL</code> in the
+          Set <code className="text-ink-dim">LOGS_ACCOUNTS</code> (allowed accounts) and{" "}
+          <code className="text-ink-dim">INVENTORY_ANALYSIS_SECRET</code> + <code className="text-ink-dim">DATABASE_URL</code> in the
           environment to enable the logs viewer.
         </p>
       </div>
     );
   }
 
-  if (phase === "login") {
+  if (phase === "needlink") {
     return (
-      <form onSubmit={submitLogin} className="mx-auto mt-10 max-w-sm">
-        <div className="card p-6">
+      <div className="mx-auto mt-10 max-w-md">
+        <div className="card p-6 text-center">
           <p className="eyebrow text-brand">Logs</p>
-          <h1 className="mt-1 text-xl font-bold text-ink">{multiUser ? "Sign in to view logs" : "Enter the logs password"}</h1>
-          {multiUser && (
-            <input
-              type="text"
-              aria-label="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoFocus
-              autoComplete="username"
-              className="mt-4 w-full border border-line bg-panel-2 px-3 py-2 text-sm text-ink placeholder:text-ink-dim focus:border-brand"
-              placeholder="Username"
-            />
-          )}
-          <input
-            type="password"
-            aria-label="Logs password"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            autoFocus={!multiUser}
-            autoComplete="current-password"
-            className="mt-3 w-full border border-line bg-panel-2 px-3 py-2 text-sm text-ink placeholder:text-ink-dim focus:border-brand"
-            placeholder="Password"
-          />
-          {loginError && <p className="mt-2 text-[13px] text-diag">{loginError}</p>}
-          <button
-            type="submit"
-            className="mt-4 w-full bg-brand-strong px-3 py-2 text-[13px] font-bold uppercase tracking-wider text-white hover:opacity-90"
-          >
-            Unlock
-          </button>
+          <h1 className="mt-1 text-xl font-bold text-ink">Access is by signed link</h1>
+          <p className="mt-3 text-[13px] text-ink-faint">
+            The logs open only from a signed link for an authorized account — the same signed-token method
+            as the PRO gate. Open a valid link (generated for an allow-listed account) to start a session.
+          </p>
         </div>
-      </form>
+      </div>
     );
   }
 
