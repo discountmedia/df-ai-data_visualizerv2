@@ -20,16 +20,18 @@ const display = Anton({
   display: "swap",
 });
 
-// Deterrent (production only) — suppress the right-click menu + common DevTools
-// shortcuts so casual users in the Web Viewer can't trivially open Inspect. This
-// is NOT real protection (easily bypassed; the authoritative control is disabling
-// DevTools on the FileMaker Web Viewer / WebView2). Prod-only so local dev keeps
-// its tools.
+// Deterrent (production only) — suppress the right-click menu, DevTools
+// shortcuts (F12, Ctrl/Cmd+Shift+I/J/C, Ctrl/Cmd+U), and KEYBOARD refresh
+// (F5, Ctrl/Cmd+R, Ctrl+Shift+R) so operators in the Web Viewer can't casually
+// reload or inspect. This is NOT real protection: native reload buttons/gestures
+// cannot be blocked from page JS — the authoritative control is disabling DevTools
+// + browser accelerator keys on the FileMaker Web Viewer (WebView2). Prod-only so
+// local dev keeps its tools + refresh.
 const HARDEN_SCRIPT = `(function(){try{
   document.addEventListener("contextmenu",function(e){e.preventDefault();},true);
   document.addEventListener("keydown",function(e){
     var k=(e.key||"").toLowerCase();
-    if(e.key==="F12"||((e.ctrlKey||e.metaKey)&&e.shiftKey&&(k==="i"||k==="j"||k==="c"))||((e.ctrlKey||e.metaKey)&&k==="u")){
+    if(e.key==="F12"||e.key==="F5"||((e.ctrlKey||e.metaKey)&&e.shiftKey&&(k==="i"||k==="j"||k==="c"))||((e.ctrlKey||e.metaKey)&&(k==="u"||k==="r"))){
       e.preventDefault();e.stopPropagation();
     }
   },true);
