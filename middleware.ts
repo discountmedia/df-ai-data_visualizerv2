@@ -59,16 +59,19 @@ function gateEnabled(): boolean {
 // is embedded Chromium and never contains it, so a hit is a security signal.
 const FILEMAKER_UA = /filemaker/i;
 
-function logAccess(req: NextRequest, ev: NextFetchEvent, outcome: string, allowed: boolean): void {
+type LogLevel = "info" | "warn" | "error" | "alert";
+
+function logAccess(req: NextRequest, ev: NextFetchEvent, name: string, baseLevel: LogLevel, message: string): void {
   const ua = req.headers.get("user-agent") || "";
   const ip =
     (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
     req.headers.get("x-real-ip") ||
     "unknown";
   const isFileMakerUa = FILEMAKER_UA.test(ua);
-  // FileMaker-UA hit → alert (drives the nav bubble). Gate denials stay 'warn'
-  // so routine bot traffic hitting the prod URL doesn't spam the bubble.
-  const level = isFileMakerUa ? "alert" : allowed ? "info" : "warn";
+  // A FileMaker UA always alerts (drives the nav bubble); otherwise use the level
+  // the caller chose — signature/HMAC rejections come in at 'alert', benign
+  // denials (no token, expired, bots) at 'warn' so they don't spam the bubble.
+  const level: LogLevel = isFileMakerUa && baseLevel !== "alert" ? "alert" : baseLevel;
   // Capture ALL request headers EXCEPT the ones that carry secrets (the session
   // cookie / auth header) — logging those would persist credentials.
   const headers: Record<string, string> = {};
@@ -79,8 +82,8 @@ function logAccess(req: NextRequest, ev: NextFetchEvent, outcome: string, allowe
   const entry = {
     type: "auth" as const,
     level,
-    name: allowed ? "gate.allow" : "gate.deny",
-    message: outcome,
+    name,
+    message,
     ip,
     method: req.method,
     path: req.nextUrl.pathname,
@@ -89,7 +92,7 @@ function logAccess(req: NextRequest, ev: NextFetchEvent, outcome: string, allowe
     meta: { headers },
   };
   // Console (Vercel runtime logs) as a fallback signal.
-  if (isFileMakerUa) console.warn("[auth-gate][ALERT] FileMaker user-agent — " + JSON.stringify(entry));
+  if (level === "alert") console.warn(`[auth-gate][ALERT] ${name} — ` + JSON.stringify(entry));
   else console.log("[auth-gate] " + JSON.stringify(entry));
   // Persist to the log store. Edge can't reach Neon directly, so POST the Node
   // ingest route in the background (never blocks or fails the response).
@@ -126,11 +129,19 @@ export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<
   const secret = process.env.INVENTORY_ANALYSIS_SECRET as string;
   const now = Date.now();
 
-  // 1. Existing valid session → allow.
+  // 1. Existing valid session → allow. A present cookie that fails the HMAC
+  //    check (not mere expiry) means a tampered/forged session → alert.
   const cookie = req.cookies.get(COOKIE)?.value;
-  if (cookie && (await verifySession(secret, cookie, now)).ok) {
-    logAccess(req, ev, "allow:cookie", true);
-    return NextResponse.next();
+  if (cookie) {
+    const sess = await verifySession(secret, cookie, now);
+    if (sess.ok) {
+      logAccess(req, ev, "gate.allow", "info", "allow: valid session cookie");
+      return NextResponse.next();
+    }
+    if (sess.reason === "bad session signature") {
+      logAccess(req, ev, "session.signature.rejected", "alert", "df_pro_session HMAC signature rejected (tampered/forged cookie)");
+    }
+    // expired / other → fall through to the token path
   }
 
   // 2. Fresh signed URL → verify, then set the session cookie and strip the token.
@@ -139,7 +150,18 @@ export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<
   if (payload || signature) {
     const res = await verifyProToken(secret, payload, signature, now);
     if (!res.ok) {
-      logAccess(req, ev, "deny:" + (res.reason ?? "invalid token"), false);
+      // A presented token whose HMAC/project/decoding is rejected is a security
+      // signal → alert. A stale (but genuinely signed) or half-present token is
+      // benign → warn.
+      const sigRejected =
+        res.reason === "bad signature" || res.reason === "wrong project" || res.reason === "undecodable payload";
+      logAccess(
+        req,
+        ev,
+        sigRejected ? "gate.signature.rejected" : "gate.deny",
+        sigRejected ? "alert" : "warn",
+        res.reason ?? "invalid token"
+      );
       return denied(res.reason ?? "invalid token");
     }
     const url = req.nextUrl.clone();
@@ -154,12 +176,12 @@ export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<
       path: "/",
       maxAge: SESSION_TTL_SEC,
     });
-    logAccess(req, ev, "allow:token" + (res.account ? " account=" + res.account : ""), true);
+    logAccess(req, ev, "gate.allow", "info", "allow: signed URL" + (res.account ? ` (account=${res.account})` : ""));
     return response;
   }
 
   // 3. No session, no token.
-  logAccess(req, ev, "deny:no token", false);
+  logAccess(req, ev, "gate.deny", "warn", "no token presented");
   return denied("no token");
 }
 
