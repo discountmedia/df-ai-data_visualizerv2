@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Anton } from "next/font/google";
 import { DashboardProvider } from "@/components/DashboardProvider";
-import { ProBridge } from "@/components/ProBridge";
+import { PRO_BRIDGE_SCRIPT } from "@/lib/proBridgeScript";
 import "./globals.css";
 
 // Clean, modern, highly legible UI font (replaces the terminal monospace).
@@ -30,8 +30,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-theme="dark" className={`${sans.variable} ${display.variable}`}>
+      <head>
+        {/* PRO (FileMaker) bridge — installed pre-hydration so the global
+            functions FileMaker calls by name exist from initial page parse. */}
+        <script dangerouslySetInnerHTML={{ __html: PRO_BRIDGE_SCRIPT }} />
+      </head>
       <body>
-        <ProBridge />
         <DashboardProvider>{children}</DashboardProvider>
       </body>
     </html>

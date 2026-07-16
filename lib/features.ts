@@ -13,3 +13,18 @@
  * sensitive figures aren't downloadable while the tab is hidden).
  */
 export const FINANCIALS_ENABLED = false;
+
+/**
+ * AUTO_LOAD_BUNDLED — whether to auto-load the bundled test spreadsheets on
+ * startup.
+ *
+ * In production the app waits for a PRO (FileMaker) push and shows a "waiting"
+ * state until real data arrives — no stand-in test numbers ever ship. In
+ * dev/local it auto-loads the bundled export so the dashboard is populated
+ * without FileMaker. Override explicitly with NEXT_PUBLIC_AUTO_LOAD_BUNDLED
+ * ("true" / "false").
+ */
+export const AUTO_LOAD_BUNDLED =
+  process.env.NEXT_PUBLIC_AUTO_LOAD_BUNDLED != null
+    ? process.env.NEXT_PUBLIC_AUTO_LOAD_BUNDLED === "true"
+    : process.env.NODE_ENV !== "production";

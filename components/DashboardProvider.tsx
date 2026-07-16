@@ -5,6 +5,7 @@ import {
   useContext,
   useReducer,
   useCallback,
+  useEffect,
   type ReactNode,
 } from "react";
 import type {
@@ -22,10 +23,11 @@ import { mergeSources } from "@/lib/mergeSources";
 import { detectEntities } from "@/lib/entities";
 import { deriveFinancials } from "@/lib/deriveFinancials";
 import { deriveMediaProduction } from "@/lib/deriveMediaProduction";
+import { parseProPayload, toProPayloadCsv } from "@/lib/fromProPayload";
 import { FINANCIALS_ENABLED } from "@/lib/features";
 import { makeSampleData } from "@/lib/sampleData";
 
-export type Phase = "idle" | "parsing" | "inferring" | "review" | "ready" | "error";
+export type Phase = "idle" | "parsing" | "inferring" | "review" | "ready" | "error" | "waiting";
 
 interface State {
   phase: Phase;
@@ -48,6 +50,7 @@ interface State {
 
 type Action =
   | { type: "PARSING" }
+  | { type: "WAITING" }
   | { type: "INFERRING"; parsed: ParsedFile; entities: EntitySet }
   | { type: "REVIEW"; schema: SchemaProfile; usedFallback: boolean; note?: string }
   | { type: "READY"; overrides: SchemaOverrides }
@@ -74,6 +77,9 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "PARSING":
       return { ...initialState, phase: "parsing" };
+    case "WAITING":
+      // Production idle state: loaded, bridge installed, awaiting a PRO push.
+      return { ...initialState, phase: "waiting" };
     case "INFERRING":
       return { ...state, phase: "inferring", parsed: action.parsed, entities: action.entities };
     case "REVIEW":
@@ -126,6 +132,12 @@ interface Ctx extends State {
   loadFile: (file: File) => Promise<void>;
   loadSample: () => Promise<void>;
   loadAutoData: () => Promise<void>;
+  /** Ingest a PRO (FileMaker) push: two headerless CSV blocks. */
+  loadFromPro: (inventoryCsv: string, staffCsv: string) => Promise<void>;
+  /** Enter the production idle state — awaiting a PRO push. */
+  enterWaiting: () => void;
+  /** Dev-only: reproject the bundled export into the PRO contract and push it. */
+  simulateProPush: () => Promise<void>;
   confirmSchema: (overrides: SchemaOverrides) => void;
   backToReview: () => void;
   setLocation: (loc: string) => void;
@@ -162,9 +174,48 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     [runInference]
   );
 
+  // Shared no-review ingest: show the instant heuristic schema, then refine with
+  // AI in the background and swap it in. Used by both the bundled auto-load and a
+  // live PRO push — both land the operator straight on real numbers, no
+  // schema-review step, tab + filter preserved across the background upgrade.
+  const overridesFor = (s: SchemaProfile): SchemaOverrides => ({
+    vetoedColumns: s.columns.filter((c) => c.trust === "deprecated" || c.trust === "duplicate").map((c) => c.name),
+  });
+  const ingestParsed = useCallback(async (parsed: ParsedFile) => {
+    const entities = detectEntities(parsed);
+    // 1. Show good data immediately on the instant, client-side heuristic schema.
+    //    INFERRING sets parsed + entities; READY_WITH_SCHEMA (same tick) flips to
+    //    ready WITHOUT clobbering them.
+    const heuristic = heuristicSchema(parsed.rows);
+    dispatch({ type: "INFERRING", parsed, entities });
+    dispatch({ type: "READY_WITH_SCHEMA", schema: heuristic, usedFallback: true, overrides: overridesFor(heuristic), refining: true });
+
+    // 2. Refine with AI in the background, then swap it in seamlessly.
+    try {
+      const { schema, usedFallback, note } = await inferSchemaClient(parsed);
+      dispatch({ type: "UPGRADE_SCHEMA", schema, usedFallback, note, overrides: overridesFor(schema) });
+    } catch {
+      dispatch({ type: "UPGRADE_SCHEMA", schema: heuristic, usedFallback: true, overrides: overridesFor(heuristic) });
+    }
+  }, []);
+
+  // Ingest a live PRO push: two headerless CSV blocks (inventory + staff) mapped
+  // through the fixed positional contract into the same ParsedFile shape.
+  const loadFromPro = useCallback(async (inventoryCsv: string, staffCsv: string) => {
+    dispatch({ type: "PARSING" });
+    try {
+      const parsed = parseProPayload(inventoryCsv, staffCsv);
+      await ingestParsed(parsed);
+    } catch (err) {
+      dispatch({ type: "ERROR", error: err instanceof Error ? err.message : "Could not read the PRO payload." });
+    }
+  }, [ingestParsed]);
+
+  const enterWaiting = useCallback(() => dispatch({ type: "WAITING" }), []);
+
   // Auto-load the bundled test export, infer its schema, and land directly on the
-  // dashboard — no upload splash, no schema-review step. This is how it runs live
-  // (the backend will feed the same shape of data).
+  // dashboard — no upload splash, no schema-review step. Dev/local only; in
+  // production the app waits for a PRO push instead (see AUTO_LOAD_BUNDLED).
   const loadAutoData = useCallback(async () => {
     dispatch({ type: "PARSING" });
     try {
@@ -201,30 +252,44 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         fetchSheet("/CuratedFields-TEST.xlsx", "CuratedFields-TEST.xlsx"),
       ]);
       const parsed = mergeSources(v2, v1);
-      const entities = detectEntities(parsed);
-      const overridesFor = (s: SchemaProfile) => ({
-        vetoedColumns: s.columns.filter((c) => c.trust === "deprecated" || c.trust === "duplicate").map((c) => c.name),
-      });
-
-      // 1. Show good data immediately on the instant, client-side heuristic schema.
-      //    INFERRING sets parsed + entities into state; READY_WITH_SCHEMA (batched
-      //    in the same tick) flips to ready WITHOUT clobbering them.
-      const heuristic = heuristicSchema(parsed.rows);
-      dispatch({ type: "INFERRING", parsed, entities });
-      dispatch({ type: "READY_WITH_SCHEMA", schema: heuristic, usedFallback: true, overrides: overridesFor(heuristic), refining: true });
-
-      // 2. Refine with AI in the background, then swap it in seamlessly (the user
-      //    keeps looking at real numbers the whole time; tab + filter are preserved).
-      try {
-        const { schema, usedFallback, note } = await inferSchemaClient(parsed);
-        dispatch({ type: "UPGRADE_SCHEMA", schema, usedFallback, note, overrides: overridesFor(schema) });
-      } catch {
-        dispatch({ type: "UPGRADE_SCHEMA", schema: heuristic, usedFallback: true, overrides: overridesFor(heuristic) });
-      }
+      await ingestParsed(parsed);
     } catch (err) {
       dispatch({ type: "ERROR", error: err instanceof Error ? err.message : "Could not auto-load data." });
     }
-  }, []);
+  }, [ingestParsed]);
+
+  // Dev-only: reproject the bundled export into the PRO CSV contract and push it
+  // through the real bridge path (fileMakerReceive → pro:payload → loadFromPro),
+  // so the PRO ingest can be exercised in the browser without FileMaker.
+  const simulateProPush = useCallback(async () => {
+    dispatch({ type: "PARSING" });
+    try {
+      const fetchSheet = async (url: string, name: string) => {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Could not load ${name} (${res.status}).`);
+        const blob = await res.blob();
+        return parseSpreadsheet(new File([blob], name, {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }));
+      };
+      const [v2, v1] = await Promise.all([
+        fetchSheet("/CURATEDV2-TESTING.xlsx", "CURATEDV2-TESTING.xlsx"),
+        fetchSheet("/CuratedFields-TEST.xlsx", "CuratedFields-TEST.xlsx"),
+      ]);
+      const parsed = mergeSources(v2, v1);
+      const { inventoryCsvData, staffCsvData } = toProPayloadCsv(parsed, detectEntities(parsed));
+      const envelope = JSON.stringify({ requestId: "simulate", inventoryCsvData, staffCsvData });
+      // Prefer the real bridge entry point (exercises the JSON envelope +
+      // validation); fall back to the event the provider listens for.
+      if (typeof window !== "undefined" && typeof window.fileMakerReceive === "function") {
+        window.fileMakerReceive(envelope);
+      } else {
+        await loadFromPro(inventoryCsvData, staffCsvData);
+      }
+    } catch (err) {
+      dispatch({ type: "ERROR", error: err instanceof Error ? err.message : "Could not simulate a PRO push." });
+    }
+  }, [loadFromPro]);
 
   const loadSample = useCallback(async () => {
     dispatch({ type: "PARSING" });
@@ -243,11 +308,38 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   }, [runInference]);
 
+  // Consume a PRO push. The pre-hydration bridge script (installed in the layout
+  // head) hands FileMaker's payload to the data layer via a `pro:payload` window
+  // event AND buffers it on `window.__proPayload`. We drain the buffer on mount
+  // (covers a push that landed before this listener existed) and also listen for
+  // later pushes — so a payload is handled whether it arrives before or after
+  // mount. Consuming here keeps the bridge fully decoupled from React state.
+  useEffect(() => {
+    const onPro = (e: Event) => {
+      const d = (e as CustomEvent).detail as { inventoryCsvData?: string; staffCsvData?: string } | undefined;
+      if (d && typeof d.inventoryCsvData === "string" && typeof d.staffCsvData === "string") {
+        loadFromPro(d.inventoryCsvData, d.staffCsvData);
+      }
+    };
+    window.addEventListener("pro:payload", onPro);
+
+    const pending = window.__proPayload;
+    if (pending && typeof pending.inventoryCsvData === "string" && typeof pending.staffCsvData === "string") {
+      delete window.__proPayload; // consume once
+      loadFromPro(pending.inventoryCsvData, pending.staffCsvData);
+    }
+
+    return () => window.removeEventListener("pro:payload", onPro);
+  }, [loadFromPro]);
+
   const value: Ctx = {
     ...state,
     loadFile,
     loadSample,
     loadAutoData,
+    loadFromPro,
+    enterWaiting,
+    simulateProPush,
     confirmSchema: (overrides) => dispatch({ type: "READY", overrides }),
     backToReview: () => dispatch({ type: "BACK_TO_REVIEW" }),
     setLocation: (loc) => dispatch({ type: "SET_LOCATION", location: loc }),

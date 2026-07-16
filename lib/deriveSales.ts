@@ -88,13 +88,20 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
       /staff/i.test(e.key) ||
       (findColumn(e.columns, [/name/i]) && findColumn(e.columns, [/department|dept/i]))
   );
-  const rosterByName = new Map<string, { dept: string | null; title: string | null; username: string | null }>();
+  const rosterByName = new Map<
+    string,
+    { displayName: string; dept: string | null; title: string | null; username: string | null; email: string | null; phone: string | null }
+  >();
   const usernameToName = new Map<string, string>();
   if (staffEntity) {
     const nameCol = findColumn(staffEntity.columns, [/name/i]);
     const deptCol = findColumn(staffEntity.columns, [/department|dept/i]);
     const titleCol = findColumn(staffEntity.columns, [/title/i]);
     const userCol = findColumn(staffEntity.columns, [/username|user/i]);
+    // The simplified PRO staff table carries a real contact email + direct line;
+    // read them so the roster card shows them (no more "—" phone fallback).
+    const emailCol = findColumn(staffEntity.columns, [/e-?mail/i]);
+    const phoneCol = findColumn(staffEntity.columns, [/direct/i, /phone/i, /mobile|cell/i]);
     const rows = entities.rowsByEntity[staffEntity.key] ?? [];
     for (const r of rows) {
       const nm = nameCol ? cleanName(r[nameCol]) : null;
@@ -102,8 +109,10 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
       const dept = deptCol && r[deptCol] != null ? String(r[deptCol]).trim() : null;
       const title = titleCol && r[titleCol] != null ? String(r[titleCol]).trim() : null;
       const uname = userCol && r[userCol] != null ? String(r[userCol]).trim().toLowerCase() : null;
+      const email = emailCol && r[emailCol] != null && /@/.test(String(r[emailCol])) ? String(r[emailCol]).trim() : null;
+      const phone = phoneCol && r[phoneCol] != null && String(r[phoneCol]).trim() !== "" ? String(r[phoneCol]).trim() : null;
       if (!rosterByName.has(nm.name.toLowerCase()))
-        rosterByName.set(nm.name.toLowerCase(), { dept, title, username: uname });
+        rosterByName.set(nm.name.toLowerCase(), { displayName: nm.name, dept, title, username: uname, email, phone });
       if (uname) usernameToName.set(uname, nm.name);
     }
   }
@@ -135,7 +144,6 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
   } else {
     notes.push("No email table detected — 'emails sent' is unavailable.");
   }
-  notes.push("No phone column in the export — rep phone shows as “—”.");
 
   // --- Build the rep map: anchor on sellers ∪ staff roster ---
   const reps = new Map<string, SalesRep>();
@@ -149,8 +157,8 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
         repId,
         location: roster?.dept ?? null,
         title: roster?.title ?? null,
-        email: null,
-        phone: null,
+        email: roster?.email ?? null,
+        phone: roster?.phone ?? null,
         unitsSold: 0,
         totalSale: 0,
         avgSale: null,
@@ -163,13 +171,17 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
     return rep;
   };
 
-  // Seed from roster so the whole team shows even with no sales yet.
+  // Seed from roster so the whole team shows even with no sales yet. Use the
+  // roster's original-case display name (the username join is gone under the
+  // simplified staff contract, so falling back to capitalize(k) would mangle
+  // multi-word names like "Ross Kohlmeier").
   for (const [k, info] of rosterByName) {
-    ensureRep(usernameToName.get(info.username ?? "") ?? capitalize(k), null);
+    ensureRep(info.displayName ?? capitalize(k), null);
     const rep = reps.get(k);
     if (rep) {
       rep.location = info.dept ?? rep.location;
       rep.title = info.title ?? rep.title;
+      rep.phone = info.phone ?? rep.phone;
     }
   }
 
@@ -216,9 +228,11 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
       const count = uname ? emailsByUsername.get(uname) : undefined;
       rep.emailsSent = count ?? 0;
     }
-    // Username match first; fall back to an unambiguous first-name match so reps
-    // without a roster row still resolve. Never guess on a collision.
-    rep.email = (uname ? emailAddrByUsername.get(uname) : undefined)
+    // Roster's own contact email wins (the simplified PRO staff table provides
+    // it directly). Otherwise fall back to the username join, then an
+    // unambiguous first-name match. Never guess on a collision.
+    rep.email = roster?.email
+      ?? (uname ? emailAddrByUsername.get(uname) : undefined)
       ?? matchEmailByFirstName(rep.name, emailAddrByUsername, usernameToName)
       ?? null;
     rep.avgSale = rep.unitsSold > 0 && rep.totalSale != null ? Math.round(rep.totalSale / rep.unitsSold) : null;
@@ -244,6 +258,8 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
       (b.totalSale ?? 0) - (a.totalSale ?? 0) ||
       (b.emailsSent ?? 0) - (a.emailsSent ?? 0)
   );
+
+  if (!repList.some((r) => r.phone)) notes.push("No phone/direct line on the roster — rep phone shows as “—”.");
 
   // --- Round-robin snapshot (live "next up" per queue) ---
   const rrEntity = entities.related.find((e) => /round.?robin/i.test(e.key));

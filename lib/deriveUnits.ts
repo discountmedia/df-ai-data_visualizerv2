@@ -76,7 +76,7 @@ export function deriveUnits(
   const loweredCol = findColumn(cols, [/lowered\s*height/i, /broker\s*lowered/i]);
   const raisedCol = findColumn(cols, [/raised\s*height/i, /broker\s*raise/i]);
   const warehouseCol = findColumn(cols, [/^warehouse$/i]);
-  const attachCol = findColumn(cols, [/broker\s*attachments/i, /^attachments$/i]);
+  const attachCol = findColumn(cols, [/broker\s*attachments/i, /^attachments$/i, /attachments/i]);
   const productUrlCol = findColumn(cols, [/product\s*server\s*url/i, /product.*url/i]);
   const youtubeCol = findColumn(cols, [/youtubeurl/i, /youtube\s*video/i, /youtube/i]);
 
@@ -92,6 +92,13 @@ export function deriveUnits(
 
   const cell = (col: string | undefined, r: Row): string | null =>
     col && r[col] != null && r[col] !== "" ? String(r[col]) : null;
+
+  // Last 4 alphanumerics of a serial — the short id shown in unit titles.
+  const last4 = (serial: string | null): string | null => {
+    if (!serial) return null;
+    const alnum = serial.replace(/[^a-zA-Z0-9]/g, "");
+    return alnum.length >= 4 ? alnum.slice(-4) : alnum || null;
+  };
 
   // Work bucket from the recon checkpoints: on-rent > sold/removed > needs-diag
   // (no/incomplete diagnosis) > ready (serviced + sign-off ok) > working.
@@ -132,7 +139,10 @@ export function deriveUnits(
       name,
       forkliftName: cell(forkliftNameCol, r),
       serial,
-      serial4: cell(serial4Col, r),
+      // Prefer a dedicated "Serial 4" column; otherwise fall back to the last 4
+      // alphanumerics of the full serial so unit titles keep their #nnnn lead-in
+      // (the PRO contract sends a full "Serial Number", no separate Serial 4).
+      serial4: cell(serial4Col, r) ?? last4(serial),
       make: cell(makeCol, r),
       model: cell(modelCol, r),
       type: cell(typeCol, r),

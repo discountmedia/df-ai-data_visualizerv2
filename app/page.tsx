@@ -14,7 +14,7 @@ import { WorkStageView } from "@/components/tabs/WorkStageView";
 import { OctaneView } from "@/components/tabs/OctaneView";
 import { MediaView } from "@/components/media/MediaView";
 import { AdminUploads } from "@/components/admin/AdminUploads";
-import { LoadingState, ErrorState, EmptyState } from "@/components/states/States";
+import { LoadingState, ErrorState, EmptyState, WaitingState } from "@/components/states/States";
 import { deriveSales } from "@/lib/deriveSales";
 import { deriveUnits } from "@/lib/deriveUnits";
 import { deriveMedia, isListable } from "@/lib/deriveMedia";
@@ -22,12 +22,13 @@ import { scoreUnits } from "@/lib/score";
 import { buildInsightsInput } from "@/lib/insightsClient";
 import { splitOctaneUnits } from "@/lib/octane";
 import { locationBucket, bucketedLocations } from "@/lib/location";
-import { FINANCIALS_ENABLED } from "@/lib/features";
+import { FINANCIALS_ENABLED, AUTO_LOAD_BUNDLED } from "@/lib/features";
 
 export default function Page() {
   const {
     phase, parsed, entities, schema, overrides, error, reset,
-    activeTab, setTab, locationFilter, loadAutoData, schemaRefining, financials, media,
+    activeTab, setTab, locationFilter, loadAutoData, enterWaiting, simulateProPush,
+    schemaRefining, financials, media,
   } = useDashboard();
 
   // The header "AI Analysis" button opens a company-wide AI read in a modal popup
@@ -35,10 +36,14 @@ export default function Page() {
   // each tab's own AiAnalysisCard.
   const [overallAi, setOverallAi] = useState(false);
 
-  // No upload splash — land straight in the bundled data (live, PRO pushes this).
+  // No upload splash. In production the app waits for a PRO (FileMaker) push; in
+  // dev/local it auto-loads the bundled test export so the dashboard populates
+  // without FileMaker (see AUTO_LOAD_BUNDLED).
   useEffect(() => {
-    if (phase === "idle") loadAutoData();
-  }, [phase, loadAutoData]);
+    if (phase !== "idle") return;
+    if (AUTO_LOAD_BUNDLED) loadAutoData();
+    else enterWaiting();
+  }, [phase, loadAutoData, enterWaiting]);
 
   const salesSummary = useMemo(() => (entities && schema ? deriveSales(entities, schema) : null), [entities, schema]);
   const allUnits = useMemo(() => (entities && schema ? deriveUnits(entities, schema, overrides) : []), [entities, schema, overrides]);
@@ -71,6 +76,9 @@ export default function Page() {
   );
 
   if (phase === "idle" || phase === "parsing") return <LoadingState label="Loading inventory…" />;
+  // Production idle: awaiting a PRO push. The simulate affordance is dev-only.
+  if (phase === "waiting")
+    return <WaitingState onSimulate={process.env.NODE_ENV !== "production" ? simulateProPush : undefined} />;
   if (phase === "inferring") return <LoadingState label="Inferring schema with AI…" />;
   if (phase === "error")
     return <div className="px-5 py-16"><ErrorState message={error ?? "Something went wrong."} onRetry={reset} /></div>;

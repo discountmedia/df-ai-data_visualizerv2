@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discount Forklift Dashboard — FileMaker Web Viewer Compliance</title>
+<style>
+  :root {
+    --bg: #ffffff; --panel: #f6f8fa; --ink: #1f2328; --muted: #57606a;
+    --line: #d0d7de; --accent: #0969da; --ok: #1a7f37; --warn: #9a6700;
+    --code-bg: #f6f8fa; --kw: #cf222e; --str: #0a3069; --com: #6e7781;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+  h1 { font-size: 1.8rem; line-height: 1.2; margin: 0 0 .3rem; }
+  h2 { font-size: 1.3rem; margin: 2.4rem 0 .8rem; padding-bottom: .3rem; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 1.6rem 0 .5rem; }
+  p { margin: .7rem 0; }
+  .sub { color: var(--muted); margin: 0 0 1.5rem; }
+  .meta { color: var(--muted); font-size: .85rem; }
+  code { font-family: "SF Mono", ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .86em;
+         background: rgba(175,184,193,.2); padding: .12em .4em; border-radius: 5px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+        padding: 1rem 1.1rem; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: .8rem; line-height: 1.55; }
+  .c-com { color: var(--com); font-style: italic; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .9rem; }
+  th, td { text-align: left; padding: .5rem .7rem; border: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--panel); }
+  td.ok { color: var(--ok); font-weight: 600; white-space: nowrap; }
+  .callout { border: 1px solid var(--line); border-left: 4px solid var(--accent);
+             background: var(--panel); border-radius: 6px; padding: .8rem 1rem; margin: 1rem 0; }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.ok { border-left-color: var(--ok); }
+  ul { margin: .6rem 0; padding-left: 1.3rem; }
+  li { margin: .3rem 0; }
+  .tag { display: inline-block; font-size: .72rem; font-weight: 600; text-transform: uppercase;
+         letter-spacing: .04em; padding: .12em .5em; border-radius: 999px; }
+  .tag.confirm { background: #fff8c5; color: #7d4e00; border: 1px solid #d4a72c; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line);
+           color: var(--muted); font-size: .82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>FileMaker Web Viewer — Bridge Compliance</h1>
+  <p class="sub">Discount Forklift Inventory Intelligence dashboard · demonstrating conformance to
+  <em>"Inventory Analysis: JavaScript for the FileMaker Web Viewer"</em>, §&nbsp;"Putting It Together".</p>
+  <p class="meta">Prepared 2026-07-15 · source files: <code>lib/proBridgeScript.ts</code> (bridge) and
+  <code>lib/fromProPayload.ts</code> (field-order parser).</p>
+
+  <div class="callout ok">
+    <strong>Summary.</strong> I have implemented all three required functions
+    (<code>fileMakerReceive</code>, <code>fileMakerSend</code>, <code>fileMakerReady</code>) with the exact
+    contract the guide specifies: the same function names, parameters, receipt keys and values, the
+    single-reply <code>alreadySent</code> guarantee, the early <code>return</code>, the status messages,
+    the callback script name <code>Inventory Analysis Return</code>, option <code>'5'</code>, and the
+    <code>health_check</code> ready ping. <strong>Nothing FileMaker observes has been removed or
+    renamed.</strong> Three items adapt the guide's <em>example HTML</em> to a hosted React application;
+    I have listed them at the end for your sign-off.
+  </div>
+
+  <h2>1 · Requirement → implementation</h2>
+  <table>
+    <thead><tr><th>Guide requirement (§ Putting It Together / Data Convention)</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Three functions named exactly <code>fileMakerReceive</code>, <code>fileMakerSend</code>, <code>fileMakerReady</code> (case-sensitive), reachable as <code>window</code> globals</td><td class="ok">Met</td></tr>
+      <tr><td><code>fileMakerReceive</code> reads <code>requestId</code>, <code>inventoryCsvData</code>, <code>staffCsvData</code>, each guarded with <code>|| ''</code></td><td class="ok">Met</td></tr>
+      <tr><td>Both datasets required → otherwise <code>error</code> receipt and <code>return</code></td><td class="ok">Met</td></tr>
+      <tr><td>Exactly one reply per call (<code>alreadySent</code> guard; catch guarded by <code>!alreadySent</code>)</td><td class="ok">Met</td></tr>
+      <tr><td>Success message: <em>"Inventory and staff data received successfully."</em></td><td class="ok">Met</td></tr>
+      <tr><td>Hand off to the program after the receipt</td><td class="ok">Met</td></tr>
+      <tr><td>Receipt built as <code>{ requestId, responseAction, responseMessage }</code> (all strings)</td><td class="ok">Met</td></tr>
+      <tr><td>Callback via <code>FileMaker.PerformScriptWithOption('Inventory Analysis Return', json, '5')</code></td><td class="ok">Met</td></tr>
+      <tr><td>Two-part bridge guard (<code>typeof FileMaker</code> + <code>typeof …PerformScriptWithOption === 'function'</code>)</td><td class="ok">Met</td></tr>
+      <tr><td><code>JSON.stringify</code> the callback parameter</td><td class="ok">Met</td></tr>
+      <tr><td><code>responseAction</code> ∈ <code>success | error | ready</code></td><td class="ok">Met</td></tr>
+      <tr><td><code>fileMakerReady</code> sends <code>requestId: "health_check"</code>, <code>responseAction: "ready"</code>, and is invoked last</td><td class="ok">Met</td></tr>
+      <tr><td>All values crossing the boundary are strings; empty field → <code>''</code></td><td class="ok">Met</td></tr>
+      <tr><td>Datasets parsed <strong>headerless</strong>, columns read by fixed position (the guide's field order)</td><td class="ok">Met</td></tr>
+    </tbody>
+  </table>
+
+  <h2>2 · The three functions (actual source)</h2>
+  <p>This is the verbatim bridge I installed. It runs as a pre-hydration inline
+  <code>&lt;script&gt;</code> in the document <code>&lt;head&gt;</code> (see item A below), so the functions
+  FileMaker calls by name exist from the first moment the page parses.</p>
+
+<pre><code>(function () {
+  if (window.__dfBridgeInstalled) return;
+  window.__dfBridgeInstalled = true;
+  var CALLBACK_SCRIPT = "Inventory Analysis Return";
+  var CALLBACK_OPTION = "5"; <span class="c-com">// Suspend and Resume — runs the callback immediately</span>
+
+  function bridgePresent() {
+    return typeof window.FileMaker !== "undefined" &amp;&amp; window.FileMaker &amp;&amp;
+      typeof window.FileMaker.PerformScriptWithOption === "function";
+  }
+
+  <span class="c-com">// 2) fileMakerSend — builds the receipt (all strings) and calls back into FileMaker.</span>
+  function fileMakerSend(requestId, responseAction, responseMessage) {
+    var responseJson = JSON.stringify({
+      requestId: requestId, responseAction: responseAction, responseMessage: responseMessage
+    });
+    if (bridgePresent()) {
+      window.FileMaker.PerformScriptWithOption(CALLBACK_SCRIPT, responseJson, CALLBACK_OPTION);
+    } else if (window.console) {
+      console.warn("[ProBridge] FileMaker bridge not available; receipt dropped:", responseJson);
+    }
+  }
+
+  <span class="c-com">// 1) fileMakerReceive — FileMaker calls this with one JSON string; reply exactly once.</span>
+  function fileMakerReceive(jsonString) {
+    var requestId = ""; var alreadySent = false;
+    try {
+      var d = JSON.parse(jsonString);
+      requestId = d.requestId || "";
+      var inventoryCsvData = d.inventoryCsvData || "";
+      var staffCsvData = d.staffCsvData || "";
+      if (inventoryCsvData === "" || staffCsvData === "") {
+        fileMakerSend(requestId, "error", "Both inventory and staff CSV datasets are required to proceed.");
+        return;
+      }
+      fileMakerSend(requestId, "success", "Inventory and staff data received successfully.");
+      alreadySent = true;
+      <span class="c-com">// Hand off to the app (the guide's runInventoryAnalysis equivalent):</span>
+      var detail = { requestId: requestId, inventoryCsvData: inventoryCsvData, staffCsvData: staffCsvData };
+      window.__proPayload = detail;
+      window.dispatchEvent(new CustomEvent("pro:payload", { detail: detail }));
+    } catch (e) {
+      if (!alreadySent) {
+        fileMakerSend(requestId, "error",
+          "The request could not be parsed: " + ((e &amp;&amp; e.message) || "Unknown error occurred."));
+      }
+    }
+  }
+
+  <span class="c-com">// 3) fileMakerReady — health check; sent last, and FileMaker re-polls it on its own schedule.</span>
+  function fileMakerReady() {
+    if (bridgePresent()) {
+      window.FileMaker.PerformScriptWithOption(CALLBACK_SCRIPT, JSON.stringify({
+        requestId: "health_check", responseAction: "ready",
+        responseMessage: "The JavaScript engine is loaded and ready."
+      }), CALLBACK_OPTION);
+    }
+  }
+
+  <span class="c-com">// Install globally so FileMaker can call them by name, then announce readiness.</span>
+  window.fileMakerReceive = fileMakerReceive;
+  window.fileMakerSend = fileMakerSend;
+  window.fileMakerReady = fileMakerReady;
+  fileMakerReady();
+})();</code></pre>
+
+  <h2>3 · The CSV field order (positional parse)</h2>
+  <p>Both datasets arrive <strong>headerless</strong>; columns are read by index in the guide's fixed
+  order. From <code>lib/fromProPayload.ts</code> (parsed with PapaParse, no header):</p>
+
+<pre><code><span class="c-com">// Inventory columns, index [0]..[35], in FileMaker's fixed export order.</span>
+export const PRO_INVENTORY_COLUMNS = [
+  "Record UUID","Forklift Name","Serial Number","Year","Make","Type",             <span class="c-com">// [0]-[5]</span>
+  "Check in model","Capacity","Fuel type","Invoice Fuel","FOB State",             <span class="c-com">// [6]-[10]</span>
+  "Lift Location","Checked In","Diagnosed","Serviced","Auto body done",           <span class="c-com">// [11]-[15]</span>
+  "final sign off acceptable","final sign off video upload","Pre Inspection DONE",<span class="c-com">// [16]-[18]</span>
+  "Freight status out","Equipment on rent","SOLD!","Final sale price","Sold To",  <span class="c-com">// [19]-[23]</span>
+  "PandaDoc Signed","Sales Names Sold by","Mast","Fork Length","Lowered Height",  <span class="c-com">// [24]-[28]</span>
+  "Raised Height","Tires","Hours","INVOICE Attachments","Product Server URL",     <span class="c-com">// [29]-[33]</span>
+  "youtubeurl","Photos Resized",                                                  <span class="c-com">// [34]-[35]</span>
+];
+
+<span class="c-com">// Staff columns, index [0]..[4], in FileMaker's fixed export order.</span>
+export const PRO_STAFF_FIELDS = ["NAME","DEPARTMENT","TITLE","EMAIL","DIRECT"];   <span class="c-com">// [0]-[4]</span></code></pre>
+
+  <h2>4 · Adaptations from the guide's example — <span class="tag confirm">please confirm</span></h2>
+  <p>The guide's example is a single inline HTML page. This application is a hosted (https) React app —
+  the mode the guide's "hosted mode" and auth-token sections describe. The following adapt the
+  <em>example's</em> mechanics to that environment while preserving everything FileMaker sends or
+  receives. Items&nbsp;B and&nbsp;C are the two I specifically ask you to confirm.</p>
+
+  <h3>A · Functions installed via a pre-hydration inline <code>&lt;script&gt;</code></h3>
+  <p>A React app has no plain top-level script scope, so the three functions are assigned to
+  <code>window</code> from an inline script in <code>&lt;head&gt;</code>, executing before hydration. This is
+  <em>additive</em> — it only guarantees the globals exist as early as possible (so <code>fileMakerReady</code>
+  polls succeed immediately). Nothing is removed. The functions, names, and returns are unchanged.</p>
+
+  <h3>B · <code>fileMakerReady</code> readiness gate: no <code>typeof Papa</code> check <span class="tag confirm">confirm</span></h3>
+  <p>The guide gates readiness on <code>librariesLoaded = (typeof Papa !== 'undefined')</code> because its
+  example loads PapaParse from a CDN and must confirm it arrived. In this app PapaParse is
+  <strong>bundled</strong> and used in the data layer, not in the bridge, so there is no <code>window.Papa</code>
+  global. Keeping the literal check would make <code>fileMakerReady</code> <strong>never</strong> fire (a
+  deadlock). I therefore gate on the FileMaker bridge only — the same intent ("announce ready when the
+  app can process"), since the parser ships in the bundle. <em>Please confirm this substitution is
+  acceptable.</em></p>
+
+  <h3>C · <code>fileMakerSend</code> "bridge not available" branch: <code>console.warn</code> not <code>document.body</code> <span class="tag confirm">confirm</span></h3>
+  <p>The guide's <code>else</code> branch does <code>document.body.innerText = 'The FileMaker bridge is not
+  available.'</code>. In a live React page that would erase the app, so I log the same information to the
+  console instead. This branch <strong>never executes inside a real Web Viewer</strong> (FileMaker is
+  always present there); it is purely a developer signal in non-FileMaker contexts. The success/error
+  receipt path is unchanged. <em>Please confirm the log-instead-of-body substitution is acceptable.</em></p>
+
+  <h3>D · Hand-off line</h3>
+  <p>Where the guide calls <code>runInventoryAnalysis(inventoryCsvData, staffCsvData)</code>, I dispatch the
+  two CSV blocks to the app via a <code>pro:payload</code> event (and buffer them on <code>window.__proPayload</code>
+  so a push is never dropped if it lands before the view mounts). The guide explicitly sanctions this:
+  <em>"runInventoryAnalysis is your function… write however you like."</em> The receipt to FileMaker is sent
+  <em>before</em> this hand-off, exactly as specified.</p>
+
+  <h2>5 · Handshake &amp; what I ask of PRO</h2>
+  <div class="callout">
+    <p style="margin-top:0"><strong>Timing.</strong> The bridge installs the globals, then calls
+    <code>fileMakerReady()</code>. Because PRO pushes only after the ready ping (confirmed), and FileMaker
+    re-polls <code>fileMakerReady()</code> until it receives that ping, the handshake is race-free: by the time
+    <code>fileMakerReceive</code> is called, it is guaranteed to exist. I add <strong>no</strong> retry loop on my
+    side — retry/timeout remains owned by the FileMaker side, per the guide.</p>
+    <p style="margin-bottom:0"><strong>To confirm:</strong> PRO waits for / polls <code>fileMakerReady()</code> and
+    only calls <code>fileMakerReceive</code> after receiving the <code>ready</code> ping — correct?</p>
+  </div>
+  <p>The one thing that can only be validated from an actual FileMaker client is the live handshake
+  itself. Everything up to it I have verified in automated tests — the function contract, the receipts,
+  the field-order parse, and the end-to-end render from a payload.</p>
+
+  <footer>
+    Discount Forklift Inventory Intelligence · FileMaker Web Viewer bridge compliance ·
+    generated for review. Code excerpts are verbatim from the application source.
+  </footer>
+
+</div>
+</body>
+</html>

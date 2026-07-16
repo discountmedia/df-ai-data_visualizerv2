@@ -15,14 +15,18 @@ SheetJS, and the Anthropic / xAI / OpenAI APIs.**
 
 ## How it works
 
-**It loads straight into the data — no upload screen.** On startup the app fetches
-**two** bundled spreadsheets — `public/CURATEDV2-TESTING.xlsx` (rich inventory) and
-`public/CuratedFields-TEST.xlsx` (email / staff / round-robin entities + fuel type +
-sales rep) — merges them by `Record UUID` in the browser, and lands directly on the
-dashboard. This mirrors production, where an external system (**PRO**) will push the
-data live; the bundled sheets are stand-in test data, used as if they were live.
-(The app never *pulls* from PRO — it only signals "ready to receive" and
-acknowledges receipt success/failure. See `CLAUDE.md → PRO integration`.)
+**No upload screen.** How data arrives depends on the environment:
+
+- **Production** — the app **waits for a push from PRO**, Discount Forklift's
+  **FileMaker Pro** system, which runs this app inside a Web Viewer and pushes the
+  inventory + staff data in (two headerless CSV blocks). The app never *pulls* from
+  PRO — it only signals "ready to receive" and acknowledges the receipt. Access is
+  gated by a signed, time-limited URL (see below). See `CLAUDE.md → PRO integration`.
+- **Dev / local** — the app auto-loads **two** bundled spreadsheets
+  (`public/CURATEDV2-TESTING.xlsx` + `public/CuratedFields-TEST.xlsx`), merges them
+  by `Record UUID`, and lands directly on the dashboard, so the UI is populated
+  without FileMaker. These are stand-in test data. (A "Simulate PRO push" button in
+  the waiting state exercises the real ingest path without FileMaker.)
 
 Loading is two-stage so you see real numbers instantly:
 
@@ -38,6 +42,13 @@ Real exports stack several tables in one sheet via a `prefix::field` convention
 **structurally** (by prefix, never by name) and partitions the sheet into
 entities — so the unit views read only inventory rows (~1,325 of ~40k), while the
 Staff/Sales views read the email, roster, and round-robin slices.
+
+Under the **PRO (FileMaker) contract** the staff table is simplified to a flat
+5-field roster (`NAME, DEPARTMENT, TITLE, EMAIL, DIRECT`), which the adapter
+re-emits under the `Staff::` prefix so the same entity pipeline applies. There's
+no `email::`/`round_robin::` feed in that contract, so Sales Team's activity
+views (emails-sent, round-robin, lead sources) show empty states, while the
+roster's real email + phone feed each rep's contact card.
 
 ## Features
 
@@ -74,7 +85,12 @@ Optionally add keys to `.env.local` (the app runs on heuristics without them):
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...     # Claude: schema inference + insights + summarize + connect
+INVENTORY_ANALYSIS_SECRET=...    # shared secret for the hosted-mode auth gate (prod only)
 ```
+
+In dev the app auto-loads the bundled data and the **auth gate is off**, so no
+secret is needed locally. To exercise the gate locally, set `AUTH_GATE=on` (and
+`INVENTORY_ANALYSIS_SECRET`).
 
 > Note: `next dev` caches the `public/` listing at startup — if you change the
 > bundled data file, restart the dev server.
@@ -84,7 +100,12 @@ ANTHROPIC_API_KEY=sk-ant-...     # Claude: schema inference + insights + summari
 Push to **`mainv2`**; the Vercel git integration auto-deploys. Required build
 settings: **Root Directory `.`**, **Framework Next.js**, **Output Directory
 default**. Set the API keys above as Environment Variables (server-side only —
-never exposed to the browser).
+never exposed to the browser), including `INVENTORY_ANALYSIS_SECRET`.
+
+> **Heads up:** with the secret set, the production build turns the **auth gate
+> on**. Opening the prod URL directly in a browser returns **401 by design** — the
+> only way in is a fresh, FileMaker-signed link (60-second freshness window). And
+> production **waits for a PRO push** rather than showing bundled data.
 
 ## Conventions (apply to all work)
 
@@ -106,4 +127,5 @@ never exposed to the browser).
 - Rep ↔ roster ↔ email matching is best-effort (names are padded with employee IDs
   and joined via the staff roster).
 - All processing is in-memory per session; nothing is persisted server-side. The
-  live PRO data pipeline is roadmapped.
+  live PRO (FileMaker) push pipeline + hosted-mode auth gate are implemented;
+  optional day-over-day persistence (via the dormant Neon path) is a later step.

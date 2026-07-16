@@ -19,7 +19,7 @@ view derives from that inferred schema.
 ## Stack & commands
 
 Next.js 15 (App Router) · React 19 · TypeScript · Tailwind 3 · Recharts ·
-SheetJS (`xlsx`) · Anthropic SDK · xAI + OpenAI via OpenAI-compatible REST.
+SheetJS (`xlsx`) · PapaParse (PRO CSV parse) · Anthropic SDK · Web Crypto (auth gate).
 
 ```bash
 npm install
@@ -37,14 +37,26 @@ Chrome) of `next start` or the deployed URL.
 
 ## How it runs (important — this is unusual)
 
-**No upload splash, no schema-review screen.** On load the app immediately
-fetches the **two** bundled spreadsheets, merges them, parses, and lands straight
-on the dashboard. This is intentional: in production an external system called
-**PRO** will push the data; the bundled xlsx files are stand-in test data, used
-*as if they were live PRO data*. Do not reintroduce an upload/landing page as the
-default entry.
+**No upload splash, no schema-review screen.** How data arrives depends on the
+environment, gated by `AUTO_LOAD_BUNDLED` (`lib/features.ts`: default `true` in
+dev, `false` in production; override with `NEXT_PUBLIC_AUTO_LOAD_BUNDLED`):
 
-Auto-load sequence (`components/DashboardProvider.tsx → loadAutoData`):
+- **Production → waits for a PRO push.** The app shows a "waiting for PRO"
+  state (`WaitingState`) and renders only once **PRO** — Discount Forklift's
+  **FileMaker Pro** system — pushes the data into the Web Viewer. Nothing is
+  auto-loaded; no stand-in numbers ever ship to prod. See "PRO integration" below.
+- **Dev / local → auto-loads the bundled test export.** It fetches the **two**
+  bundled spreadsheets, merges them, and lands straight on the dashboard so the UI
+  is populated without FileMaker. The bundled xlsx are stand-in test data used *as
+  if they were live PRO data*. (In the waiting state, a dev-only "Simulate PRO
+  push" button reprojects the bundled data into the PRO CSV contract and drives
+  the real ingest path — `simulateProPush`.)
+
+Do not reintroduce an upload/landing page as the default entry. Both paths
+converge on one no-review ingest (`DashboardProvider → ingestParsed`): the instant
+heuristic schema is shown, then the AI refine is swapped in behind it.
+
+Bundled auto-load sequence (`components/DashboardProvider.tsx → loadAutoData`, **dev only**):
 
 1. `fetch` **both** `/CURATEDV2-TESTING.xlsx` (rich inventory — the primary table,
    72 cols incl. Forklift Name, Serial 4, Mast, heights, media URLs) and
@@ -173,12 +185,18 @@ layouts is **legacy and off the live render path**; keep but don't assume live.)
 Overview owns the headline distributions, Work Stage owns the pipeline + queue,
 Sales Team owns the rep board + chase list. Don't reintroduce a view on two tabs.
 
-## Data uploads (Neon) — temporary admin path
+## Data uploads (Neon) — DORMANT (superseded by the PRO push)
 
-Separate from the live dashboard render (which still auto-loads the bundled
-spreadsheets), the **Admin** tab / `/admin` route persists the daily report to
-**Neon Postgres**. This is a stopgap until **FileMaker Pro** posts a JSON payload
-to the backend directly.
+> **Status (owner decision):** the PRO/FileMaker push (above) renders in-memory
+> per session, so Neon is no longer needed for any current feature. This whole
+> path is left **dormant, not deleted** — it's a harmless no-op without
+> `DATABASE_URL` (the route 503s), the Admin tab is already marked temporary, and
+> keeping it makes persistence/history a re-enable rather than a rebuild
+> (persistence is a "next logical step", not a go-live requirement). Everything
+> below still describes how it works if `DATABASE_URL` is set.
+
+The **Admin** tab / `/admin` route persists the daily report to **Neon
+Postgres**. This predates the PRO push (it was a manual-upload stopgap).
 
 - **`lib/db.ts`** — `neon()` HTTP client (server-only; `DATABASE_URL`) + idempotent
   `ensureSchema()` (`CREATE TABLE IF NOT EXISTS`, no migration step). Two tables:
@@ -220,17 +238,63 @@ both are gated behind a button.
 **Hard rule: AI never computes numbers or ranks units.** Scoring and all metrics
 are deterministic; AI is a narrative/interpretation layer only.
 
-## PRO integration (roadmapped — do not break the contract)
+## PRO integration (FileMaker Web Viewer — do not break the contract)
 
-`components/ProBridge.tsx` (mounted in `app/layout.tsx`) is the handshake with
-**PRO**, the parent system that will push data live via `postMessage`.
+**PRO is Discount Forklift's FileMaker Pro system**, which runs this app inside a
+**Web Viewer** (WebView2/Chromium on Windows) and **pushes** it the data. The
+contract is defined by the company's lead developer (see
+`InventoryAnalysis_JavaScript_Guide.html`). This is **not** a postMessage/iframe
+handshake — FileMaker calls global `window` functions by name and we call back via
+`FileMaker.PerformScriptWithOption`. The app can **NEVER pull/request data from
+PRO**; it only receives a push and replies with a receipt.
 
-- The app can **NEVER pull/request data from PRO.** Its only outbound signals are
-  (1) `{ type: "READY" }` — ready to receive (NOT a request) — and
-  (2) `{ type: "PAYLOAD_ACK", ok: true|false }` — received successfully or not.
-- PRO pushes `{ source: "PRO", type: "PAYLOAD", payload }`; the app re-emits it as
-  a `pro:payload` window event for the data layer to consume (wiring TBD).
-- `ALLOWED_ORIGINS` is currently `"*"` — lock it to PRO's real origin once known.
+**The bridge** is a **pre-hydration inline script** (`lib/proBridgeScript.ts →
+PRO_BRIDGE_SCRIPT`, injected into `<head>` by `app/layout.tsx`) — plain JS, not a
+React component, so the globals FileMaker calls by name exist from initial page
+parse (before hydration). PRO pushes **only after our `ready` ping** (no
+timer/cron), and FileMaker re-polls `fileMakerReady()` until it gets the ping, so
+the handshake is race-free. It installs three global functions (names are
+contract, case-sensitive):
+
+- `fileMakerReceive(jsonString)` — FileMaker calls this with one JSON string
+  `{ requestId, inventoryCsvData, staffCsvData }`. We validate both CSV blocks are
+  present, send exactly one receipt (`alreadySent` guard), then hand the payload
+  to the data layer — buffered on `window.__proPayload` **and** dispatched as a
+  `pro:payload` event (`DashboardProvider` drains the buffer on mount and listens
+  for later pushes, so a payload is caught whether it lands before or after mount).
+- `fileMakerSend(requestId, responseAction, responseMessage)` — the receipt (all
+  strings). Wraps `FileMaker.PerformScriptWithOption('Inventory Analysis Return',
+  json, '5')` (option `'5'` = Suspend and Resume, the only one that runs the
+  callback immediately). Deviation from the guide: the no-bridge branch
+  `console.warn`s instead of writing to `document.body` (that would wipe the React
+  root). `responseAction` ∈ `"success" | "error" | "ready"`.
+- `fileMakerReady()` — health-check ping (`requestId: "health_check"`), sent last.
+
+**The data contract** — two **headerless** CSV blocks with **fixed positional
+columns** (order is part of the contract). `lib/fromProPayload.ts →
+parseProPayload` maps them into the normal `ParsedFile`: 36 inventory columns
+(`Record UUID`…`Photos Resized`), and 5 staff columns (`NAME, DEPARTMENT, TITLE,
+EMAIL, DIRECT`) re-emitted under a `Staff::` prefix so `detectEntities` treats
+them as the roster. Parsed with **PapaParse** (matches the guide's own parser).
+All values are strings; empty → null. If FileMaker's export order changes, update
+the arrays in `fromProPayload.ts`. (Staff is now this flat 5-field table only —
+no `round_robin::`/`email::`/media-production feed — so Sales Team's activity
+views degrade to empty states; EMAIL + DIRECT feed the contact card.)
+
+**Hosted-mode auth gate** (`middleware.ts` + `lib/authToken.ts`) — the Web Viewer
+loads us over https with a signed URL `?payload=<base64url>&signature=<hex>`
+(payload = `inventory-analysis|<utcMillis>|<account>`; signature =
+HMAC-SHA256 of the base64url payload with a shared secret). The middleware
+(Edge runtime → **Web Crypto**, not node `crypto`) verifies the signature
+(constant-time), the project (`inventory-analysis`), and a **60-second freshness
+window**, then issues a self-signed HttpOnly session cookie (`df_pro_session`,
+12h, stateless — no DB) and 307-redirects with the token stripped from the URL.
+Subsequent requests pass on the cookie; `_next`/favicon/logo stay ungated.
+Enablement via `gateEnabled()`: on in production when `INVENTORY_ANALYSIS_SECRET`
+is set, off in dev (set `AUTH_GATE=on` to test locally), and off + warn if no
+secret (fail-open, so a missing var can't brick the app). Verified against the
+guide's reference signature vector. **After deploy, opening the prod URL directly
+returns 401 by design** — the only way in is a fresh FileMaker-signed link.
 
 ## House rules (from the Design System — apply to all UI)
 
@@ -286,16 +350,16 @@ tab + the drill-down drawer + light theme. Don't regress it:
 ## Directory map
 
 ```text
+middleware.ts           hosted-mode auth gate (Edge) — signed-URL verify → session cookie
 app/
-  layout.tsx            root layout — fonts (Inter + Anton), <ProBridge/>, provider
-  page.tsx              entry — auto-loads + merges data, fixed tab nav, location filter
+  layout.tsx            root layout — fonts (Inter + Anton), pre-hydration PRO bridge <script> in <head>, provider
+  page.tsx              entry — waits for PRO (prod) / auto-loads bundled (dev), fixed tab nav, location filter
   globals.css           design tokens (--ground/--panel/--ink…), grid texture, fade-up
   error.tsx / global-error.tsx   error boundaries (so a render error never black-screens)
   api/{infer-schema,insights,connect,summarize}/route.ts
 components/
-  DashboardProvider.tsx state machine (useReducer): idle→ready, auto-load+merge, activeTab, location filter
+  DashboardProvider.tsx state machine (useReducer): idle→ready/waiting, ingestParsed (bundled + PRO), pro:payload listener, activeTab, location filter
   Header.tsx            logo, light/dark toggle, ⚡ AI Analysis, tabs, "refining" pill
-  ProBridge.tsx         PRO postMessage handshake
   overview/             OverviewGrid + MetricCard (clickable) + UnitsDrawer (KPI drill-down)
   charts/               OverviewCharts (sales-by-payment + brand bars)
   tabs/                 WorkStageView · OctaneView · shared.ts (unitTitle); legacy CategoryTab/*Tab router
@@ -305,7 +369,9 @@ components/
   priority/             PriorityQueue (search + 25/page + accordion specs)
   insights/             AiAnalysisModal (header → company-wide read) + AiAnalysisCard (per-tab, opt-in) + AiInsightsBody (shared); InsightsTab = deterministic scoring methodology
   ui/                   Pills, Pager (shared 25/page pager)
-lib/                    types, parseFile, mergeSources (Record-UUID join), profile (heuristic),
+lib/                    types, parseFile, mergeSources (Record-UUID join), fromProPayload (PRO CSV→ParsedFile),
+                        proBridgeScript (pre-hydration FileMaker bridge, injected in layout head),
+                        authToken (HMAC-SHA256 gate + session cookie), profile (heuristic),
                         bucketize, buckets, entities, location, octane,
                         deriveUnits/deriveSales/deriveMetrics, deriveFinancials,
                         deriveMedia/deriveMediaProduction, score, categories,
@@ -326,7 +392,10 @@ reuse, don't assume they're live.
 | --- | --- |
 | `ANTHROPIC_API_KEY` | Claude — schema inference + insights + summarize + connect. Heuristic fallback without it. |
 | `ANTHROPIC_MODEL` | optional, default `claude-sonnet-4-6` |
-| `DATABASE_URL` | Neon Postgres connection string — powers the Admin CSV uploads (`/api/upload`). Without it the upload route returns a 503; the rest of the app is unaffected. |
+| `INVENTORY_ANALYSIS_SECRET` | **Shared secret for the hosted-mode auth gate** (HMAC-SHA256 signed-URL verification — see "PRO integration"). 64 hex chars, from the lead dev; server-only, never `NEXT_PUBLIC_`. When set in production the gate is ON; unset → gate OFF (fail-open). |
+| `AUTH_GATE` | optional override: `"on"` / `"off"`. Default: on in production (if the secret is set), off in dev. Set `AUTH_GATE=on` locally to test the gate. |
+| `NEXT_PUBLIC_AUTO_LOAD_BUNDLED` | optional `"true"`/`"false"` — force the bundled-data auto-load on/off. Default: on in dev, off in production (prod waits for a PRO push). |
+| `DATABASE_URL` | **Dormant** — Neon Postgres for the Admin CSV uploads (`/api/upload`). Not needed for the live app; without it the upload route 503s and nothing else is affected (see "Data uploads (Neon)"). |
 
 (The `XAI_*` / `OPENAI_*` keys are no longer used — the Grok/GPT second-opinion
 analyzers were removed. Safe to delete from Vercel.)
