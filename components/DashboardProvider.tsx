@@ -147,6 +147,18 @@ interface Ctx extends State {
 
 const DashboardCtx = createContext<Ctx | null>(null);
 
+/** Fire-and-forget system-event log (drives the Logs "System" tab). Best-effort. */
+function logSystemEvent(name: string, message?: string, meta?: Record<string, unknown>) {
+  try {
+    fetch("/api/logs/event", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name, message, meta }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch { /* ignore */ }
+}
+
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -205,9 +217,16 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "PARSING" });
     try {
       const parsed = parseProPayload(inventoryCsv, staffCsv);
+      logSystemEvent("pro.push.received", `PRO push received (${parsed.rows.length} rows)`, {
+        inventoryBytes: inventoryCsv.length,
+        staffBytes: staffCsv.length,
+        rows: parsed.rows.length,
+      });
       await ingestParsed(parsed);
     } catch (err) {
-      dispatch({ type: "ERROR", error: err instanceof Error ? err.message : "Could not read the PRO payload." });
+      const message = err instanceof Error ? err.message : "Could not read the PRO payload.";
+      logSystemEvent("pro.push.error", message);
+      dispatch({ type: "ERROR", error: message });
     }
   }, [ingestParsed]);
 

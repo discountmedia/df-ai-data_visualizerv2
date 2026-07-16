@@ -45,9 +45,9 @@ export function getSql() {
 }
 
 let _schemaReady = false;
+let _schemaPromise: Promise<void> | null = null;
 
-export async function ensureSchema() {
-  if (_schemaReady) return;
+async function createSchema() {
   const sql = getSql();
 
   // Audit of every upload: who, when, where it came from, and what changed.
@@ -79,5 +79,53 @@ export async function ensureSchema() {
     )
   `;
 
-  _schemaReady = true;
+  // Application log — one row per event, powering the /logs viewer. `type`
+  // separates the sub-tabs (auth / performance / error / system); `level`
+  // ('alert' | 'error' | 'warn' | 'info') drives the notification bubble
+  // (alert = FileMaker user-agent hit or denied logs login). `meta` is a
+  // catch-all so new fields don't require a migration.
+  await sql`
+    CREATE TABLE IF NOT EXISTS logs (
+      id           BIGSERIAL   PRIMARY KEY,
+      ts           TIMESTAMPTZ NOT NULL DEFAULT now(),
+      type         TEXT        NOT NULL,
+      level        TEXT        NOT NULL DEFAULT 'info',
+      name         TEXT        NOT NULL,
+      message      TEXT,
+      ip           TEXT,
+      method       TEXT,
+      path         TEXT,
+      user_agent   TEXT,
+      filemaker_ua BOOLEAN     NOT NULL DEFAULT false,
+      duration_ms  INTEGER,
+      account      TEXT,
+      meta         JSONB
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS logs_ts_idx ON logs (ts DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS logs_type_ts_idx ON logs (type, ts DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS logs_alert_idx ON logs (ts DESC) WHERE level = 'alert'`;
+}
+
+export async function ensureSchema(): Promise<void> {
+  if (_schemaReady) return;
+  // Cache the in-flight promise so concurrent callers share ONE DDL run rather
+  // than each racing their own CREATE TABLE IF NOT EXISTS.
+  if (!_schemaPromise) {
+    _schemaPromise = createSchema()
+      .then(() => { _schemaReady = true; })
+      .catch((e: unknown) => {
+        _schemaPromise = null;
+        const msg = e instanceof Error ? e.message : String(e);
+        // Even with IF NOT EXISTS, two connections creating the same table at
+        // once can collide on pg_type's unique index. That means another caller
+        // (or instance) created it — treat the schema as ready, don't fail.
+        if (/duplicate key value|already exists|pg_type_typname/i.test(msg)) {
+          _schemaReady = true;
+          return;
+        }
+        throw e;
+      });
+  }
+  return _schemaPromise;
 }

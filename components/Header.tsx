@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/format";
+import { LogsAlertBadge } from "@/components/logs/LogsAlertBadge";
 
 export interface TabDef {
   id: string;
@@ -65,6 +66,7 @@ export function Header({
                     {t.count.toLocaleString()}
                   </span>
                 )}
+                {t.id === "logs" && <LogsAlertBadge />}
               </button>
             );
           })}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSql, ensureSchema } from "@/lib/db";
 import { ingestReport } from "@/lib/ingestCsv";
+import { safeLog } from "@/lib/apiLog";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -91,6 +92,15 @@ export async function POST(req: Request) {
       WHERE id = ${uploadId}
     `;
 
+    void safeLog({
+      type: "system",
+      name: "upload.complete",
+      message: `Upload by ${uploadedBy}: +${inserted} / ~${updated} / =${unchanged}`,
+      path: "/api/upload",
+      method: "POST",
+      account: uploadedBy,
+      meta: { source, totalRows: ingest.rows.length, inserted, updated, unchanged },
+    });
     return NextResponse.json({
       ok: true,
       uploadId,
@@ -105,6 +115,7 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Upload failed.";
+    void safeLog({ type: "error", level: "error", name: "api.upload", message, path: "/api/upload", method: "POST" });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

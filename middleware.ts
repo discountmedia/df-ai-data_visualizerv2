@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 import { verifyProToken, issueSession, verifySession } from "@/lib/authToken";
 
 /**
@@ -54,27 +54,56 @@ function gateEnabled(): boolean {
  *
  * We deliberately do NOT log the full header set — it carries the session cookie.
  */
-function logAccess(req: NextRequest, outcome: string): void {
+// Any case-insensitive "filemaker" substring — covers filemaker, filemaker19,
+// filemaker_19, "filemaker 19", "FileMaker/19.6", etc. Legit Web Viewer traffic
+// is embedded Chromium and never contains it, so a hit is a security signal.
+const FILEMAKER_UA = /filemaker/i;
+
+function logAccess(req: NextRequest, ev: NextFetchEvent, outcome: string, allowed: boolean): void {
   const ua = req.headers.get("user-agent") || "";
   const ip =
     (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
     req.headers.get("x-real-ip") ||
     "unknown";
-  const isFileMakerUa = /filemaker/i.test(ua); // per contract; extend if FM ever sends "FMPro"/"FMWeb"
+  const isFileMakerUa = FILEMAKER_UA.test(ua);
+  // FileMaker-UA hit → alert (drives the nav bubble). Gate denials stay 'warn'
+  // so routine bot traffic hitting the prod URL doesn't spam the bubble.
+  const level = isFileMakerUa ? "alert" : allowed ? "info" : "warn";
+  // Capture ALL request headers EXCEPT the ones that carry secrets (the session
+  // cookie / auth header) — logging those would persist credentials.
+  const headers: Record<string, string> = {};
+  req.headers.forEach((value, key) => {
+    if (key === "cookie" || key === "authorization") return;
+    headers[key] = value;
+  });
   const entry = {
-    tag: "auth-gate",
-    outcome,
+    type: "auth" as const,
+    level,
+    name: allowed ? "gate.allow" : "gate.deny",
+    message: outcome,
+    ip,
     method: req.method,
     path: req.nextUrl.pathname,
-    ip,
-    ua,
+    userAgent: ua,
     filemakerUa: isFileMakerUa,
+    meta: { headers },
   };
-  if (isFileMakerUa) {
-    console.warn("[auth-gate][ALERT] FileMaker user-agent detected — " + JSON.stringify(entry));
-  } else {
-    console.log("[auth-gate] " + JSON.stringify(entry));
-  }
+  // Console (Vercel runtime logs) as a fallback signal.
+  if (isFileMakerUa) console.warn("[auth-gate][ALERT] FileMaker user-agent — " + JSON.stringify(entry));
+  else console.log("[auth-gate] " + JSON.stringify(entry));
+  // Persist to the log store. Edge can't reach Neon directly, so POST the Node
+  // ingest route in the background (never blocks or fails the response).
+  const secret = process.env.INVENTORY_ANALYSIS_SECRET;
+  ev.waitUntil(
+    fetch(`${req.nextUrl.origin}/api/logs/ingest`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(secret ? { "x-log-key": secret } : {}) },
+      body: JSON.stringify(entry),
+      keepalive: true,
+    })
+      .then(() => undefined)
+      .catch(() => undefined)
+  );
 }
 
 function denied(reason: string): NextResponse {
@@ -85,7 +114,13 @@ function denied(reason: string): NextResponse {
   });
 }
 
-export async function middleware(req: NextRequest): Promise<NextResponse> {
+export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<NextResponse> {
+  const { pathname } = req.nextUrl;
+  // The logs viewer + its APIs carry their own password, so they're exempt from
+  // the FileMaker gate. Return before any gate logic or access logging (this
+  // also prevents the /api/logs/ingest write from logging itself → no loop).
+  if (pathname.startsWith("/logs") || pathname.startsWith("/api/logs")) return NextResponse.next();
+
   if (!gateEnabled()) return NextResponse.next();
 
   const secret = process.env.INVENTORY_ANALYSIS_SECRET as string;
@@ -94,7 +129,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // 1. Existing valid session → allow.
   const cookie = req.cookies.get(COOKIE)?.value;
   if (cookie && (await verifySession(secret, cookie, now)).ok) {
-    logAccess(req, "allow:cookie");
+    logAccess(req, ev, "allow:cookie", true);
     return NextResponse.next();
   }
 
@@ -104,7 +139,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   if (payload || signature) {
     const res = await verifyProToken(secret, payload, signature, now);
     if (!res.ok) {
-      logAccess(req, "deny:" + (res.reason ?? "invalid token"));
+      logAccess(req, ev, "deny:" + (res.reason ?? "invalid token"), false);
       return denied(res.reason ?? "invalid token");
     }
     const url = req.nextUrl.clone();
@@ -119,12 +154,12 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
       path: "/",
       maxAge: SESSION_TTL_SEC,
     });
-    logAccess(req, "allow:token" + (res.account ? " account=" + res.account : ""));
+    logAccess(req, ev, "allow:token" + (res.account ? " account=" + res.account : ""), true);
     return response;
   }
 
   // 3. No session, no token.
-  logAccess(req, "deny:no token");
+  logAccess(req, ev, "deny:no token", false);
   return denied("no token");
 }
 

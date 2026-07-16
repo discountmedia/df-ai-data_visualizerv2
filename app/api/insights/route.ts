@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { generateInsights } from "@/lib/anthropic";
+import { withLogging } from "@/lib/apiLog";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export async function POST(req: Request) {
+export const POST = withLogging("api.insights", async (req: Request) => {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       { error: "ANTHROPIC_API_KEY not configured.", code: "NO_KEY" },
@@ -28,4 +29,4 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Insight generation failed.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { summarizeCategory } from "@/lib/anthropic";
+import { withLogging } from "@/lib/apiLog";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-export async function POST(req: Request) {
+export const POST = withLogging("api.summarize", async (req: Request) => {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       { error: "ANTHROPIC_API_KEY not configured.", code: "NO_KEY" },
@@ -27,4 +28,4 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Summary generation failed.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});
