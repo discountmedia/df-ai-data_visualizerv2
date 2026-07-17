@@ -34,10 +34,10 @@ export function isAllowedAccount(account: string | null | undefined): boolean {
  *
  *   LOGS_PUBLIC=true  → always public.
  *   LOGS_PUBLIC=false → always gated.
- *   unset → follows the FileMaker gate: while AUTH_GATE is explicitly "off" (the
- *           deliberate testing state, when the whole app is already public), the
- *           logs viewer is public too — and it RE-SECURES automatically the moment
- *           AUTH_GATE goes back to "on" for go-live.
+ *   unset → follows the FileMaker gate: public whenever the gate is OFF (by any
+ *           means — AUTH_GATE=off, or no secret set), since the whole app is
+ *           already open then. It RE-SECURES automatically the moment the gate is
+ *           turned on (AUTH_GATE=on + secret) for go-live.
  *
  * ⚠️ Public mode exposes IPs / user-agents / request headers / access events.
  * Still needs DATABASE_URL for there to be logs to read.
@@ -46,7 +46,21 @@ export function logsPublic(): boolean {
   const flag = (process.env.LOGS_PUBLIC || "").trim().toLowerCase();
   if (flag === "true") return true;
   if (flag === "false") return false;
-  return (process.env.AUTH_GATE || "").trim().toLowerCase() === "off";
+  return !gateOn();
+}
+
+/**
+ * Mirror of middleware.ts → gateEnabled() (env-only, kept in sync deliberately):
+ * is the FileMaker auth gate actually enforcing? Used to decide whether logs are
+ * public by default.
+ */
+function gateOn(): boolean {
+  const secret = process.env.INVENTORY_ANALYSIS_SECRET;
+  const flag = (process.env.AUTH_GATE || "").trim().toLowerCase();
+  if (flag === "off") return false;
+  if (flag === "on") return !!secret;
+  if (!secret) return false; // fail-open (matches the gate)
+  return process.env.NODE_ENV === "production";
 }
 
 /** Logs auth needs both an allowlist AND the shared secret (to verify tokens). */
