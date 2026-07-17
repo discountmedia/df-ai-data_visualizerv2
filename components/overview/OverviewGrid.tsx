@@ -44,30 +44,44 @@ export function OverviewGrid({ units, allLocations, aiInput }: { units: UnitReco
 
         <AlertBanner openWorkOnSold={m.openWorkOnSold} />
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <MetricCard label="Total Fleet" metric={m.totalFleet} accent="ink" subtext="Every unit" onClick={open("Total Fleet", units)} />
-          <MetricCard label="Ready to Sell" metric={m.ready} accent="ready" subtext="Fully prepped" onClick={open("Ready to Sell", byWork("ready"))} />
-          <MetricCard label="Being Worked On" metric={m.working} accent="working" subtext="Service / body" onClick={open("Being Worked On", byWork("working"))} />
-          <MetricCard label="Needs Diagnosis" metric={needsDiagMain.length} accent="diag" subtext="Act first · 4 main yards" onClick={open("Needs Diagnosis", needsDiagMain)} />
-          <MetricCard label="On Rent" metric={m.onRent} accent="rent" subtext="Generating income" onClick={open("On Rent", byWork("on_rent"))} />
-          <MetricCard label="Sold" metric={m.sold} accent="diag" subtext="Closed deals" onClick={open("Sold", byWork("sold"))} />
-        </div>
+        {/* Two labelled lenses — physical work stage, then commercial payment
+            status — so the eye knows each row measures a different thing (and
+            that neither is a strict partition of Total Fleet). */}
+        <section>
+          <p className="eyebrow mb-2 text-ink-faint">Work stage</p>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+            <MetricCard label="Total Fleet" metric={m.totalFleet} accent="ink" subtext="Every unit" onClick={open("Total Fleet", units)} />
+            <MetricCard label="Ready to Sell" metric={m.ready} accent="ready" subtext="Fully prepped" onClick={open("Ready to Sell", byWork("ready"))} />
+            <MetricCard label="Being Worked On" metric={m.working} accent="working" subtext="Service / body" onClick={open("Being Worked On", byWork("working"))} />
+            <MetricCard label="Needs Diagnosis" metric={needsDiagMain.length} accent="diag" subtext="Act first · 4 main yards" onClick={open("Needs Diagnosis", needsDiagMain)} />
+            <MetricCard label="On Rent" metric={m.onRent} accent="rent" subtext="Generating income" onClick={open("On Rent", byWork("on_rent"))} />
+            {/* Sold is a win, not an alarm — neutral, so red stays reserved for act-now. */}
+            <MetricCard label="Sold" metric={m.sold} accent="ink" subtext="Closed deals" onClick={open("Sold", byWork("sold"))} />
+          </div>
+        </section>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <MetricCard label="Paid in Full" metric={m.paidInFull} accent="pif" subtext="Top tier" onClick={open("Paid in Full", bySale("paid_in_full"))} />
-          <MetricCard label="Down Payment" metric={m.downPayment} accent="downpmt" subtext="Deposit recv'd" onClick={open("Down Payment", bySale("down_payment"))} />
-          <MetricCard label="Govt PO's" metric={m.govtPo} accent="govt" subtext="Contract" onClick={open("Govt PO's", bySale("govt_po"))} />
-          <MetricCard label="Open Work on Sold" metric={m.openWorkOnSold} accent="diag" subtext="Fix now" onClick={open("Open Work on Sold", openWorkUnits)} />
-        </div>
+        <section>
+          <p className="eyebrow mb-2 text-ink-faint">Payment status</p>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <MetricCard label="Paid in Full" metric={m.paidInFull} accent="pif" subtext="Top tier" onClick={open("Paid in Full", bySale("paid_in_full"))} />
+            <MetricCard label="Down Payment" metric={m.downPayment} accent="downpmt" subtext="Deposit recv'd" onClick={open("Down Payment", bySale("down_payment"))} />
+            <MetricCard label="Govt PO's" metric={m.govtPo} accent="govt" subtext="Contract" onClick={open("Govt PO's", bySale("govt_po"))} />
+            <MetricCard label="Open Work on Sold" metric={m.openWorkOnSold} accent="diag" subtext="Fix now" onClick={open("Open Work on Sold", openWorkUnits)} />
+          </div>
+        </section>
 
+        {/* Yard snapshot sits directly under the KPIs (next to the location bar
+            that introduced the same yards) so the "where is my inventory" story
+            is contiguous instead of split across the whole page. */}
+        <LocationsSnapshot locations={allLocations} />
+
+        <OverviewCharts units={units} />
+
+        {/* Opt-in narrative comes AFTER the deterministic facts, not wedged mid-scan. */}
         <AiAnalysisCard
           input={aiInput}
           blurb="AI analysis is off by default — click Run to have Claude read this fleet (work stage, payment mix, priority queue) and surface what needs attention."
         />
-
-        <OverviewCharts units={units} />
-
-        <LocationsSnapshot locations={allLocations} />
       </div>
       {drill && <UnitsDrawer title={drill.title} units={drill.units} onClose={() => setDrill(null)} />}
     </>

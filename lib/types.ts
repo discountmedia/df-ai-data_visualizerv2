@@ -123,6 +123,8 @@ export interface EntitySet {
 
 export interface SoldUnit {
   rep: string;
+  /** Last-4 serial — unit identity for the sold / unsigned tables (may be null). */
+  serial4: string | null;
   make: string | null;
   model: string | null;
   type: string | null;
@@ -131,6 +133,9 @@ export interface SoldUnit {
   price: number | null;
   customer: string | null;
   signed: boolean;
+  /** Listing + walkaround URLs (null unless a valid http(s) URL is present). */
+  productUrl: string | null;
+  youtubeUrl: string | null;
 }
 
 export interface SalesRep {

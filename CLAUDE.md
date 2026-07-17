@@ -296,6 +296,52 @@ secret (fail-open, so a missing var can't brick the app). Verified against the
 guide's reference signature vector. **After deploy, opening the prod URL directly
 returns 401 by design** — the only way in is a fresh FileMaker-signed link.
 
+> ⚠️ **The prod gate is temporarily OFF** (`AUTH_GATE=off` in Vercel) so the owner
+> can view/style the deployed site during UI work — prod root currently returns
+> 200 and is publicly viewable. **Revert to `AUTH_GATE=on` (or delete the var) +
+> redeploy before go-live.** The secret is correct and unchanged; the "bad
+> signature / FUCKYOU" the dev saw was his own deliberate gate test (the gate
+> correctly rejected it), not a mismatch — don't re-diagnose it as a secret bug.
+
+## Logs / observability (`/logs`)
+
+A `/logs` viewer (`components/logs/LogsView.tsx`) records auth / performance /
+system / error events to a Neon `logs` table in real time. Access is **not a
+password** — it's the **same HMAC signed-URL method as the PRO gate** plus an
+account allowlist (`LOGS_ACCOUNTS`, e.g. `matt`): open `/logs?payload=…&signature=…`
+whose `account` is allowlisted → `middleware.ts → handleLogsAccess` verifies, issues
+a `df_logs_session` cookie (8h), strips the token. `/logs` + `/api/logs` are exempt
+from the FileMaker gate. Every request re-checks the allowlist (removing a name
+revokes it). Logged: IP, user-agent (**FileMaker UAs flagged** — a FileMaker UA on
+our public URL is a potential leak), **all headers except cookie/authorization**,
+gate allow/deny, logs login ok/denied, and **HMAC/signature rejections as alerts**
+(`gate.signature.rejected` etc. — feed the red `LogsAlertBadge` bubble; they carry
+the received `rxPayload`/`rxSignature` in `meta` for diagnostics). Perf comes from
+the AI routes wrapped with `withLogging` (`lib/apiLog.ts`); client events (PRO push)
+post to `/api/logs/event`. Retention: keep everything, no cron. Helpers in
+`lib/logsAuth.ts`; store in `lib/logStore.ts`. Needs `DATABASE_URL` +
+`INVENTORY_ANALYSIS_SECRET`; without them the viewer 503s.
+
+## Web Viewer deterrents (prod-only — deterrents, not enforcement)
+
+The owner wanted the Web Viewer locked down. Shipped (deterrents only — the
+authoritative reload/DevTools kill-switches live on the WebView2 host object and
+are **not** reachable from page JS or by the FileMaker dev):
+
+- **No-store caching** — `middleware.ts` stamps `Cache-Control: no-store` on EVERY
+  response (pages, the 307 token-strip redirect, the 401 denied page); `/_next/static`
+  stays `immutable` (excluded by `config.matcher`). This is the single source of
+  cache headers (the old `next.config` `headers()` block was removed).
+- **`HARDEN_SCRIPT`** (inline in `app/layout.tsx <head>`, `NODE_ENV==="production"`
+  only so dev keeps its tools): capture-phase `preventDefault` on `contextmenu` +
+  keydown for F12 / Ctrl/Cmd+Shift+I/J/C / Ctrl/Cmd+U (DevTools/view-source) and
+  F5 / Ctrl/Cmd+R / Ctrl+Shift+R (keyboard refresh).
+- **`overscroll-behavior-y: contain`** on `html, body` (kills pull-to-refresh).
+- **Vercel Analytics** (`@vercel/analytics`).
+
+Because right-click is disabled, copy affordances (click-to-copy) and in-app
+back/forward nav are on the backlog (see `docs/SESSION_HANDOFF.md`).
+
 ## House rules (from the Design System — apply to all UI)
 
 Read `Discount Forklift Design System/{README.md,CLAUDE.md,colors_and_type.css}`.
@@ -350,13 +396,15 @@ tab + the drill-down drawer + light theme. Don't regress it:
 ## Directory map
 
 ```text
-middleware.ts           hosted-mode auth gate (Edge) — signed-URL verify → session cookie
+middleware.ts           Edge gate — wraps the FileMaker signed-URL/session gate + logs signed-token access; stamps Cache-Control: no-store on EVERY response; logs allow/deny + signature rejections via ev.waitUntil → /api/logs/ingest
 app/
-  layout.tsx            root layout — fonts (Inter + Anton), pre-hydration PRO bridge <script> in <head>, provider
+  layout.tsx            root layout — fonts (Inter + Anton), pre-hydration PRO bridge <script> in <head>, prod-only HARDEN_SCRIPT deterrents, <Analytics/>, provider
   page.tsx              entry — waits for PRO (prod) / auto-loads bundled (dev), fixed tab nav, location filter
-  globals.css           design tokens (--ground/--panel/--ink…), grid texture, fade-up
+  globals.css           design tokens (--ground/--panel/--ink…), grid texture, fade-up, overscroll-behavior-y: contain (kills pull-to-refresh)
   error.tsx / global-error.tsx   error boundaries (so a render error never black-screens)
+  logs/page.tsx         standalone /logs viewer (renders LogsView; signed-token + LOGS_ACCOUNTS allowlist, gate-exempt)
   api/{infer-schema,insights,connect,summarize}/route.ts
+  api/logs/{ingest,auth,route,alerts,event}/route.ts   log ingest + logs-auth check + query + alert-bubble poll + client event sink
 components/
   DashboardProvider.tsx state machine (useReducer): idle→ready/waiting, ingestParsed (bundled + PRO), pro:payload listener, activeTab, location filter
   Header.tsx            logo, light/dark toggle, ⚡ AI Analysis, tabs, "refining" pill
@@ -368,10 +416,12 @@ components/
   media/                MediaView (coverage + production pipeline) + MediaDrawer (links drill-down)
   priority/             PriorityQueue (search + 25/page + accordion specs)
   insights/             AiAnalysisModal (header → company-wide read) + AiAnalysisCard (per-tab, opt-in) + AiInsightsBody (shared); InsightsTab = deterministic scoring methodology
+  logs/                 LogsView (typed sub-tabs, sortable, paginated, meta drill-down) + LogsAlertBadge (red bubble: FileMaker-UA + denied logins)
   ui/                   Pills, Pager (shared 25/page pager)
 lib/                    types, parseFile, mergeSources (Record-UUID join), fromProPayload (PRO CSV→ParsedFile),
                         proBridgeScript (pre-hydration FileMaker bridge, injected in layout head),
-                        authToken (HMAC-SHA256 gate + session cookie), profile (heuristic),
+                        authToken (HMAC-SHA256 gate + session cookie), logsAuth (LOGS_ACCOUNTS allowlist helpers),
+                        logStore (Neon logs read/write) + apiLog (safeLog / withLogging), profile (heuristic),
                         bucketize, buckets, entities, location, octane,
                         deriveUnits/deriveSales/deriveMetrics, deriveFinancials,
                         deriveMedia/deriveMediaProduction, score, categories,
@@ -395,7 +445,8 @@ reuse, don't assume they're live.
 | `INVENTORY_ANALYSIS_SECRET` | **Shared secret for the hosted-mode auth gate** (HMAC-SHA256 signed-URL verification — see "PRO integration"). 64 hex chars, from the lead dev; server-only, never `NEXT_PUBLIC_`. When set in production the gate is ON; unset → gate OFF (fail-open). |
 | `AUTH_GATE` | optional override: `"on"` / `"off"`. Default: on in production (if the secret is set), off in dev. Set `AUTH_GATE=on` locally to test the gate. |
 | `NEXT_PUBLIC_AUTO_LOAD_BUNDLED` | optional `"true"`/`"false"` — force the bundled-data auto-load on/off. Default: on in dev, off in production (prod waits for a PRO push). |
-| `DATABASE_URL` | **Dormant** — Neon Postgres for the Admin CSV uploads (`/api/upload`). Not needed for the live app; without it the upload route 503s and nothing else is affected (see "Data uploads (Neon)"). |
+| `LOGS_ACCOUNTS` | comma-separated account names allowed into `/logs` (e.g. `matt`), case-insensitive. Access is a signed link (same HMAC method as the gate) whose `account` is on this list; needs `INVENTORY_ANALYSIS_SECRET` (to verify) + `DATABASE_URL` (to read logs). Removing a name revokes access on the next request. |
+| `DATABASE_URL` | Neon Postgres. **Now used by the logs viewer** (the `logs` table records in real time). Still dormant for the Admin CSV uploads (`/api/upload`). Without it the logs viewer + upload route 503; nothing else is affected. (`POSTGRES_URL` is accepted as an alias.) |
 
 (The `XAI_*` / `OPENAI_*` keys are no longer used — the Grok/GPT second-opinion
 analyzers were removed. Safe to delete from Vercel.)

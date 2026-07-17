@@ -6,7 +6,6 @@ import { SchemaReview } from "@/components/SchemaReview";
 import { Header } from "@/components/Header";
 import { LocationBar } from "@/components/LocationBar";
 import { OverviewGrid } from "@/components/overview/OverviewGrid";
-import { InsightsTab } from "@/components/insights/InsightsTab";
 import { AiAnalysisModal } from "@/components/insights/AiAnalysisModal";
 import { SalesTeam } from "@/components/sales/SalesTeam";
 import { SalesNumbersView } from "@/components/financials/SalesNumbersView";
@@ -15,6 +14,7 @@ import { OctaneView } from "@/components/tabs/OctaneView";
 import { MediaView } from "@/components/media/MediaView";
 import { AdminUploads } from "@/components/admin/AdminUploads";
 import { LogsView } from "@/components/logs/LogsView";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { LoadingState, ErrorState, EmptyState, WaitingState } from "@/components/states/States";
 import { deriveSales } from "@/lib/deriveSales";
 import { deriveUnits } from "@/lib/deriveUnits";
@@ -60,7 +60,10 @@ export default function Page() {
   // Work Stage now spans every yard incl. "Other" (owner ask) — it shares the
   // same location-filtered population + scoring as Overview.
   const allLocBuckets = useMemo(() => bucketedLocations(df), [df]);
-  const filterBar = allLocBuckets;
+  const octaneLocBuckets = useMemo(() => bucketedLocations(octane), [octane]);
+  // OCTANE is a separate fleet — feed the bar OCTANE's own yard counts there so
+  // the pill numbers match what the tab actually shows (not the DF fleet).
+  const filterBar = current === "octane" ? octaneLocBuckets : allLocBuckets;
   const overviewSnapshot = useMemo(() => bucketedLocations(dfFiltered), [dfFiltered]);
   // Listable DF inventory across the full (unfiltered) fleet — the stable Media
   // tab badge (matches the tab's "Listable Inventory" headline). The coverage
@@ -80,7 +83,7 @@ export default function Page() {
   // Production idle: awaiting a PRO push. The simulate affordance is dev-only.
   if (phase === "waiting")
     return <WaitingState onSimulate={process.env.NODE_ENV !== "production" ? simulateProPush : undefined} />;
-  if (phase === "inferring") return <LoadingState label="Inferring schema with AI…" />;
+  if (phase === "inferring") return <LoadingState label="Reading your inventory…" />;
   if (phase === "error")
     return <div className="px-5 py-16"><ErrorState message={error ?? "Something went wrong."} onRetry={reset} /></div>;
   if (phase === "review") return <SchemaReview />;
@@ -122,20 +125,20 @@ export default function Page() {
         onTab={setTab}
         onAnalyze={onAnalyze}
         refining={schemaRefining}
+        search={<GlobalSearch units={allUnits} />}
       />
       {showLocationBar && (
         <div className="border-b border-line bg-ground/60">
-          <div className="mx-auto max-w-7xl px-5">
+          <div className="mx-auto max-w-[1600px] px-5">
             <LocationBar locations={filterBar} />
           </div>
         </div>
       )}
-      <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl px-5 py-6 focus:outline-none">
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1600px] px-5 py-6 focus:outline-none">
         {current === "overview" && (
-          <div className="space-y-8 fade-up">
-            {dfFiltered.length ? <OverviewGrid units={dfFiltered} allLocations={overviewSnapshot} aiInput={overviewInput} /> : <EmptyState title="No units for this filter" />}
-            <InsightsTab scoring={scoring} />
-          </div>
+          dfFiltered.length
+            ? <OverviewGrid units={dfFiltered} allLocations={overviewSnapshot} aiInput={overviewInput} />
+            : <EmptyState title="No units for this filter" />
         )}
         {current === "workstage" && <WorkStageView units={dfFiltered} scoring={scoring} />}
         {current === "sales" && (salesSummary ? <SalesTeam summary={salesSummary} locationFilter={locationFilter} /> : <EmptyState title="No sales data" />)}

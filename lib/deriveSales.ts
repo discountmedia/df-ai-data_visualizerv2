@@ -78,6 +78,9 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
   const modelCol = findColumn(baseCols, [/check\s*in\s*model/i, /^model$/i]);
   const typeCol = findColumn(baseCols, [/^type$/i, /category/i]);
   const leadCol = findColumn(baseCols, [/first\s*leads/i, /lead\s*source/i]);
+  const serial4Col = findColumn(baseCols, [/serial\s*4/i, /last\s*4/i]);
+  const productUrlCol = findColumn(baseCols, [/product\s*server\s*url/i, /product.*url/i]);
+  const youtubeCol = findColumn(baseCols, [/youtube/i]);
 
   if (!soldByCol) notes.push("No 'sold by' column found — rep sales could not be attributed.");
   if (!saleTypeCol) notes.push("No sale-type column found — sale classification is limited.");
@@ -189,6 +192,10 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
   const unsignedWorklist: SoldUnit[] = [];
   const soldUnitsByRep: Record<string, SoldUnit[]> = {};
   const cell = (col: string | undefined, r: Row) => (col && r[col] != null ? String(r[col]) : null);
+  const urlCell = (col: string | undefined, r: Row) => {
+    const v = cell(col, r);
+    return v && /^https?:\/\//i.test(v.trim()) ? v.trim() : null;
+  };
   if (soldByCol) {
     for (const r of baseRows) {
       const rawSale = cell(saleTypeCol, r);
@@ -198,6 +205,7 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
       const price = priceCol ? toNum(r[priceCol]) : null;
       const unit: SoldUnit = {
         rep: nm?.name ?? "(unattributed)",
+        serial4: cell(serial4Col, r),
         make: cell(makeCol, r),
         model: cell(modelCol, r),
         type: cell(typeCol, r),
@@ -206,6 +214,8 @@ export function deriveSales(entities: EntitySet, schema: SchemaProfile): SalesSu
         price,
         customer: cell(customerCol, r),
         signed,
+        productUrl: urlCell(productUrlCol, r),
+        youtubeUrl: urlCell(youtubeCol, r),
       };
       const rep = nm ? ensureRep(nm.name, nm.repId) : null;
       if (rep) {

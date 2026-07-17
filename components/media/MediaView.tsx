@@ -49,13 +49,14 @@ export function MediaView({ units, production }: {
           <h1 className="mt-1 text-xl font-bold text-ink">Content coverage — what a shopper can actually see</h1>
         </div>
 
-        {/* Per-unit coverage KPIs — clickable into the media drill-down */}
+        {/* Gap-first: the act-now numbers (what's missing) lead; positive
+            coverage follows; the plain total is context, last. */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-          <MetricCard label="Listable Inventory" metric={cov.total} accent="ink" subtext="Real units in this filter" onClick={open("Listable inventory", listable)} />
+          <MetricCard label="No Media at All" metric={noMedia.length} accent="diag" subtext="Invisible online — fix" onClick={open("No video and no product page", noMedia)} />
+          <MetricCard label="No Video" metric={noVideo.length} accent="working" subtext="Missing a walkaround" onClick={open("Missing a walkaround video", noVideo)} />
           <MetricCard label="Walkaround Video" metric={cov.withVideo} accent="ready" subtext={`${pct(cov.withVideo)}% have a video`} onClick={open("Has a walkaround video", listable.filter(hasVideo))} />
           <MetricCard label="Product Page" metric={cov.withProductPage} accent="rent" subtext={`${pct(cov.withProductPage)}% have a page`} onClick={open("Has a product page", listable.filter(hasPage))} />
-          <MetricCard label="No Video" metric={noVideo.length} accent="working" subtext="Missing a walkaround" onClick={open("Missing a walkaround video", noVideo)} />
-          <MetricCard label="No Media at All" metric={noMedia.length} accent="diag" subtext="Invisible online — fix" onClick={open("No video and no product page", noMedia)} />
+          <MetricCard label="Listable Inventory" metric={cov.total} accent="ink" subtext="Real units in this filter" onClick={open("Listable inventory", listable)} />
         </div>
         {excluded > 0 && (
           <p className="-mt-3 text-[12px] text-ink-faint">
@@ -69,7 +70,7 @@ export function MediaView({ units, production }: {
           <section>
             <h2 className="eyebrow mb-3">Coverage by Yard</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {cov.byLocation.map((l) => (
+              {[...cov.byLocation].sort((a, b) => b.withNeither - a.withNeither).map((l) => (
                 <div key={l.name} className="card p-3">
                   <div className="flex items-baseline justify-between">
                     <span className="truncate text-sm font-bold text-ink">{l.name}</span>

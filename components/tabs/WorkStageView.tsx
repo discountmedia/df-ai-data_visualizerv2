@@ -51,19 +51,21 @@ export function WorkStageView({ units, scoring }: { units: UnitRecord[]; scoring
           { label: "$ Behind the Shop", value: committedOpenVal || null, money: true, accent: "pif", sub: `${committedOpen.length} committed but unfinished`, onClick: open("Behind the Shop — committed but unfinished", committedOpen) },
         ]} />
 
-        <AiAnalysisCard
-          input={aiInput}
-          blurb="AI analysis is off by default — click Run to have Claude read the service pipeline + priority queue and flag what to work next."
-        />
-
         <ReconPipeline counts={counts} />
 
-        <ReadinessLegend scoring={scoring} />
-
+        {/* Queue first (the actionable thing), THEN the scoring explainer, THEN
+            the opt-in AI read — so the data story reads uninterrupted. */}
         <div>
           <p className="eyebrow mb-2">Priority Queue — what to work next</p>
           <PriorityQueue scoring={scoring} />
         </div>
+
+        <ReadinessLegend scoring={scoring} />
+
+        <AiAnalysisCard
+          input={aiInput}
+          blurb="AI analysis is off by default — click Run to have Claude read the service pipeline + priority queue and flag what to work next."
+        />
       </div>
       {drill && <UnitsDrawer title={drill.title} units={drill.units} onClose={() => setDrill(null)} />}
     </>

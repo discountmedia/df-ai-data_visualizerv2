@@ -7,7 +7,7 @@ a deterministic priority queue, a sales-team board, and an opt-in multi-model AI
 read — all schema-agnostic (no column names are ever hardcoded).
 
 Built with **Next.js 15 (App Router), React 19, TypeScript, Tailwind, Recharts,
-SheetJS, and the Anthropic / xAI / OpenAI APIs.**
+SheetJS, PapaParse, the Anthropic API, and Web Crypto (the hosted-mode auth gate).**
 
 > Agents: read **`CLAUDE.md`** for the full architecture + conventions, and the
 > **`Discount Forklift Design System/`** folder for the non-negotiable brand
@@ -62,9 +62,12 @@ roster's real email + phone feed each rep's contact card.
 - **Sales Team** — a **Roster** sidebar (click a rep for their contact card), a
   Sales Race leaderboard, deal-close health, an outreach-vs-closes chart, the rep
   leaderboard, round-robin, and an unsigned-doc chase list — plus an opt-in AI read.
+- **Media** — a content-coverage command center: per-unit walkaround-video +
+  product-page coverage (clickable KPI cards → a drill-down of exactly which units
+  are missing media, by yard) alongside the company-wide media-production pipeline.
 - **OCTANE** — the OCTANE sub-brand on its own tab, kept out of the main fleet metrics.
 - **Global location filter** — one pill bar (Denver / Las Vegas / Phoenix / DFW +
-  Other) filters Overview, Work Stage, and OCTANE.
+  Other) filters Overview, Work Stage, Sales Team, Media, and OCTANE.
 - **Priority / Act-Now queue** — deterministic, fully-explainable scoring; every
   point a unit earns is itemized. Searchable, paginated, with an accordion of each
   unit's specs (mast, fork length, heights, tires, product & video links).
@@ -73,6 +76,10 @@ roster's real email + phone feed each rep's contact card.
 - **Light / dark theme**, the real logo, and the Discount Forklift design language
   (Inter UI font, Anton for big numbers, scarce brand red, semantic status colors,
   **no pie charts**, Unicode-glyph icons).
+- **Logs / observability** (`/logs`) — auth / performance / system / error events
+  recorded to Neon in real time, viewable by an allowlisted account via a signed
+  link (same HMAC method as the gate). Flags any FileMaker user-agent hitting the
+  public URL and surfaces signature rejections as alerts. See `CLAUDE.md → Logs`.
 
 ## Run locally
 
@@ -126,6 +133,11 @@ never exposed to the browser), including `INVENTORY_ANALYSIS_SECRET`.
   date column).
 - Rep ↔ roster ↔ email matching is best-effort (names are padded with employee IDs
   and joined via the staff roster).
-- All processing is in-memory per session; nothing is persisted server-side. The
-  live PRO (FileMaker) push pipeline + hosted-mode auth gate are implemented;
-  optional day-over-day persistence (via the dormant Neon path) is a later step.
+- Inventory data is in-memory per session; the CSV itself isn't persisted (the
+  live PRO push + hosted-mode auth gate are implemented and confirmed working in
+  prod). Only the **logs** are persisted (to Neon); optional day-over-day inventory
+  persistence via the dormant Neon path is a later step.
+- In production the Web Viewer is locked down with **deterrents** (no-store caching,
+  disabled right-click / DevTools shortcuts / keyboard refresh, no pull-to-refresh).
+  These are deterrents, not hard enforcement — the authoritative controls live on
+  the WebView2 host, not in page JS.

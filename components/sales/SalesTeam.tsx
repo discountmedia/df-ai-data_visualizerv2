@@ -11,6 +11,7 @@ import { EmptyState } from "../states/States";
 import { ChartPanel } from "../viz/ChartPanel";
 import { AXIS, GRID, ChartTip } from "../viz/chartTheme";
 import { Pager } from "../ui/Pager";
+import { DataTable, type Column } from "../ui/DataTable";
 import { SalesAI } from "./SalesAI";
 
 type SortKey = "unitsSold" | "totalSale" | "avgSale" | "emailsSent" | "unsignedDocs" | "name" | "location";
@@ -111,31 +112,21 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
           </span>
         </div>
 
-        {/* KPI cards */}
+        {/* KPI cards — grouped: sales story · team/activity · the one warning
+            (Total Sold is a win, so neutral — red stays reserved for act-now). */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Card label="Total Sold" value={fmt(view.totalSold)} accent="text-diag" sub="Attributed units" />
-          <Card label="Reps Active" value={fmt(activeReps)} accent="text-ink" sub={`${view.reps.length} on team`} />
-          <Card label="Unsigned Docs" value={fmt(view.unsignedCount)} accent="text-working" sub="Real open deals" />
-          <Card label="Avg Sale" value={fmtMoney(avgSale)} accent="text-ready" sub="Per unit" />
+          <Card label="Total Sold" value={fmt(view.totalSold)} accent="text-ink" sub="Attributed units" />
           <Card label="Total Sales $" value={fmtMoney(totalSaleVal || null)} accent="text-pif" sub="Attributed" />
+          <Card label="Avg Sale" value={fmtMoney(avgSale)} accent="text-ready" sub="Per unit" />
+          <Card label="Reps Active" value={fmt(activeReps)} accent="text-ink" sub={`${view.reps.length} on team`} />
           <Card
             label="Emails Sent"
             value={view.emailsAvailable ? fmt(view.totalEmails) : "—"}
             accent="text-rent"
             sub={view.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
           />
+          <Card label="Unsigned Docs" value={fmt(view.unsignedCount)} accent="text-working" sub="Real open deals" />
         </div>
-
-        {/* Opt-in AI analyzer — directly beneath the KPI cards */}
-        <SalesAI
-          summary={view}
-          activeReps={activeReps}
-          totalSaleVal={totalSaleVal}
-          avgSale={avgSale}
-          signed={signedDeals}
-          totalDeals={allSold.length}
-          signRate={signRate}
-        />
 
         {/* Engaging visuals */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -210,14 +201,26 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
           <Pager page={clampedPage} pageCount={pageCount} start={start} shown={shown.length} total={sorted.length} onPage={setPage} />
         </section>
 
-        {/* Round robin + lead sources */}
+        {/* The most actionable list on the tab — committed, unsigned deals —
+            comes right after the leaderboard, above the company-wide reference. */}
+        <UnsignedPanel units={view.unsignedWorklist} />
+
+        {/* Company-wide reference (not per-rep) */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           <RoundRobinPanel summary={view} />
           <LeadSourcesPanel summary={view} />
         </div>
 
-        {/* Unsigned worklist */}
-        <UnsignedPanel units={view.unsignedWorklist} />
+        {/* Opt-in AI read — last, after the facts */}
+        <SalesAI
+          summary={view}
+          activeReps={activeReps}
+          totalSaleVal={totalSaleVal}
+          avgSale={avgSale}
+          signed={signedDeals}
+          totalDeals={allSold.length}
+          signRate={signRate}
+        />
 
         {view.notes.length > 0 && (
           <div className="card border-line p-3">
@@ -523,17 +526,25 @@ function RepRow({ rep, open, units, emailsAvailable, onToggle }:
                 <p className="eyebrow mb-2">What {rep.name} sold ({units.length})</p>
                 {units.slice(0, 30).map((u, i) => (
                   <div key={i} className="flex items-center justify-between gap-3 text-[13px]">
-                    <span className="text-ink">{[u.make, u.model, u.type].filter(Boolean).join(" · ") || "Unit"}</span>
-                    <span className="flex items-center gap-3">
+                    <span className="min-w-0 truncate text-ink">{soldTitle(u)}</span>
+                    <span className="flex shrink-0 items-center gap-3">
                       <span className="text-ink-dim">{u.customer ?? ""}</span>
                       <SalePill raw={u.saleTypeRaw} />
                       <span className={cn("w-2 text-center", u.signed ? "text-ready" : "text-working")} title={u.signed ? "Signed" : "Unsigned"}>
                         {u.signed ? "✓" : "○"}
                       </span>
                       <span className="w-16 text-right tabular-nums text-pif">{fmtMoney(u.price)}</span>
+                      {isUrl(u.productUrl) ? (
+                        <a href={u.productUrl} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline" aria-label={`Listing for ${soldTitle(u)} (opens in new tab)`}>↗</a>
+                      ) : (
+                        <span aria-hidden="true" className="w-2 text-center text-ink-faint">—</span>
+                      )}
                     </span>
                   </div>
                 ))}
+                {units.length > 30 && (
+                  <p className="pt-1 text-[12px] text-ink-faint">+{units.length - 30} more not shown.</p>
+                )}
               </div>
             )}
           </td>
@@ -606,71 +617,46 @@ function LeadSourcesPanel({ summary }: { summary: SalesSummary }) {
 }
 
 const isUnattributed = (rep: string | null | undefined) => !rep || /unattributed/i.test(rep);
-type UnsignedSortKey = "unit" | "rep" | "sale" | "price";
+const isUrl = (v: string | null | undefined): v is string => !!v && /^https?:\/\//i.test(v);
 const unitLabel = (u: SoldUnit) => [u.make, u.model, u.type].filter(Boolean).join(" · ") || "Unit";
+const soldTitle = (u: SoldUnit) => (u.serial4 ? `#${u.serial4} ${unitLabel(u)}` : unitLabel(u));
 
 function UnsignedPanel({ units }: { units: SoldUnit[] }) {
-  const [page, setPage] = useState(0);
-  const [sortKey, setSortKey] = useState<UnsignedSortKey>("price");
-  const [asc, setAsc] = useState(false);
-  useEffect(() => setPage(0), [sortKey, asc]);
-
   // "(unattributed)" deals are hidden entirely — only chase deals tied to a rep.
   const attributed = useMemo(() => units.filter((u) => !isUnattributed(u.rep)), [units]);
-  const sorted = useMemo(() => {
-    const dir = asc ? 1 : -1;
-    return [...attributed].sort((a, b) => {
-      switch (sortKey) {
-        case "unit": return unitLabel(a).localeCompare(unitLabel(b)) * dir;
-        case "rep": return (a.rep ?? "").localeCompare(b.rep ?? "") * dir;
-        case "sale": return (a.saleTypeRaw ?? "").localeCompare(b.saleTypeRaw ?? "") * dir;
-        default: return ((a.price ?? 0) - (b.price ?? 0)) * dir;
-      }
-    });
-  }, [attributed, sortKey, asc]);
+  // Stable per-object row keys (SoldUnit carries no unique id).
+  const keyOf = useMemo(() => {
+    const m = new Map<SoldUnit, string>();
+    attributed.forEach((u, i) => m.set(u, String(i)));
+    return (u: SoldUnit) => m.get(u) ?? "";
+  }, [attributed]);
+
+  const columns = useMemo<Column<SoldUnit>[]>(() => [
+    { key: "unit", header: "Unit", sortValue: (u) => soldTitle(u), render: (u) => <span className="text-ink">{soldTitle(u)}</span>, printValue: (u) => soldTitle(u) },
+    { key: "rep", header: "Rep", sortValue: (u) => u.rep, copy: (u) => u.rep },
+    { key: "customer", header: "Customer", sortValue: (u) => u.customer ?? "", copy: (u) => u.customer },
+    { key: "sale", header: "Sale", sortValue: (u) => u.saleTypeRaw ?? "", render: (u) => <SalePill raw={u.saleTypeRaw} />, printValue: (u) => u.saleTypeRaw ?? "" },
+    { key: "listing", header: "Listing", href: (u) => (isUrl(u.productUrl) ? u.productUrl : null), linkLabel: () => "Listing ↗", printValue: (u) => u.productUrl ?? "" },
+    { key: "price", header: "Price", numeric: true, sortValue: (u) => u.price ?? -Infinity, render: (u) => <span className="tabular-nums text-pif">{fmtMoney(u.price)}</span>, printValue: (u) => (u.price != null ? String(u.price) : "") },
+  ], []);
 
   if (attributed.length === 0) return null;
 
-  const setSort = (k: UnsignedSortKey) => {
-    if (k === sortKey) setAsc(!asc);
-    else { setSortKey(k); setAsc(k !== "price"); } // text cols asc, price desc by default
-  };
-  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE));
-  const clampedPage = Math.min(page, pageCount - 1);
-  const start = clampedPage * PAGE;
-  const shown = sorted.slice(start, start + PAGE);
-
   return (
-    <section className="card overflow-hidden border-working/30">
-      <div className="px-4 pt-4">
-        <p className="eyebrow text-working">Unsigned PandaDocs — Chase These ({attributed.length})</p>
-        <p className="mt-1 text-[13px] text-ink-faint">Committed deals (down-payment / paid-in-full) with no signature on file. Govt POs, removed, and unattributed deals excluded.</p>
-      </div>
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-[13px]">
-          <thead>
-            <tr className="border-y border-line text-ink-dim">
-              <Th label="Unit" k="unit" cur={sortKey} asc={asc} onSort={setSort} />
-              <Th label="Rep" k="rep" cur={sortKey} asc={asc} onSort={setSort} />
-              <Th label="Sale" k="sale" cur={sortKey} asc={asc} onSort={setSort} />
-              <Th label="Price" k="price" cur={sortKey} asc={asc} onSort={setSort} num />
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((u, i) => (
-              <tr key={start + i} className="border-b border-line/40 hover:bg-panel-2">
-                <td className="px-4 py-2 text-ink">{unitLabel(u)}</td>
-                <td className="truncate px-4 py-2 text-ink-dim">{u.rep}</td>
-                <td className="px-4 py-2"><SalePill raw={u.saleTypeRaw} /></td>
-                <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-pif">{fmtMoney(u.price)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {attributed.length > PAGE && (
-        <Pager page={clampedPage} pageCount={pageCount} start={start} shown={shown.length} total={sorted.length} onPage={setPage} />
-      )}
+    <section className="space-y-1">
+      <p className="eyebrow text-working">Unsigned PandaDocs — Chase These ({attributed.length})</p>
+      <p className="mb-3 mt-1 text-[13px] text-ink-faint">Committed deals (down-payment / paid-in-full) with no signature on file. Govt POs, removed, and unattributed deals excluded.</p>
+      <DataTable
+        columns={columns}
+        rows={attributed}
+        getRowKey={keyOf}
+        initialSort={{ key: "price", asc: false }}
+        searchText={(u) => [u.serial4, u.make, u.model, u.type, u.rep, u.customer, u.saleTypeRaw].filter(Boolean).join(" ")}
+        searchPlaceholder="Search unit, rep, customer…"
+        minWidth={720}
+        printTitle="Unsigned PandaDocs — Chase These"
+        printSubtitle="Discount Forklift · committed, unsigned"
+      />
     </section>
   );
 }
