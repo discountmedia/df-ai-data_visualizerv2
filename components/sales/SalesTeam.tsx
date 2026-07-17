@@ -125,12 +125,6 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
           <Card label="Total Sales $" value={fmtMoney(totalSaleVal || null)} accent="text-pif" sub="Attributed" onClick={allSold.length ? () => setDrill({ title: "Sold units — by value", units: allSold }) : undefined} />
           <Card label="Avg Sale" value={fmtMoney(avgSale)} accent="text-ready" sub="Per unit" />
           <Card label="Reps Active" value={fmt(activeReps)} accent="text-ink" sub={`${view.reps.length} on team`} />
-          <Card
-            label="Emails Sent"
-            value={view.emailsAvailable ? fmt(view.totalEmails) : "—"}
-            accent="text-rent"
-            sub={view.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
-          />
           {showUnsignedKpi && (
             <Card label="Unsigned Docs" value={fmt(view.unsignedCount)} accent="text-working" sub="Real open deals" onClick={view.unsignedWorklist.length ? () => setDrill({ title: "Unsigned PandaDocs — Chase These", units: view.unsignedWorklist }) : undefined} />
           )}
