@@ -174,7 +174,7 @@ async function handleLogsAccess(req: NextRequest, ev: NextFetchEvent): Promise<N
   return response;
 }
 
-export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<NextResponse> {
+async function gate(req: NextRequest, ev: NextFetchEvent): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
   // Logs APIs check the df_logs_session cookie themselves; never gate/loop them
   // (the /api/logs/ingest write would otherwise log itself).
@@ -242,6 +242,17 @@ export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<
   // 3. No valid token, no valid session.
   logAccess(req, ev, "gate.deny", "warn", "no valid token or session");
   return denied("no token");
+}
+
+// Single choke point: stamp Cache-Control: no-store on EVERY response the gate
+// produces — including the 307 token-strip redirect and the 401 denied() page,
+// which short-circuit before Next's config headers() layer and would otherwise
+// ship with no cache header. Immutable /_next assets are excluded by
+// config.matcher and never reach here, so they stay cacheable.
+export async function middleware(req: NextRequest, ev: NextFetchEvent): Promise<NextResponse> {
+  const res = await gate(req, ev);
+  res.headers.set("Cache-Control", "no-store");
+  return res;
 }
 
 // Gate pages + API, but let Next's build assets and the favicon/logo load freely

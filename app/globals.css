@@ -30,6 +30,8 @@ html, body {
   font-size: 16px; line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Disarm the touch pull-to-refresh (swipe-down reload) gesture on touchscreens. */
+  overscroll-behavior-y: contain;
 }
 :focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
 :focus:not(:focus-visible) { outline: none; }
