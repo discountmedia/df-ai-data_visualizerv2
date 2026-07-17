@@ -13,6 +13,7 @@ import { AXIS, GRID, ChartTip } from "../viz/chartTheme";
 import { Pager } from "../ui/Pager";
 import { DataTable, type Column } from "../ui/DataTable";
 import { Drawer } from "../ui/Drawer";
+import { ExternalLink } from "../ui/ExternalLink";
 import { SalesAI } from "./SalesAI";
 
 type SortKey = "unitsSold" | "totalSale" | "avgSale" | "emailsSent" | "unsignedDocs" | "name" | "location";
@@ -584,7 +585,7 @@ function RepRow({ rep, open, units, emailsAvailable, onToggle }:
                       </span>
                       <span className="w-16 text-right tabular-nums text-pif">{fmtMoney(u.price)}</span>
                       {isUrl(u.productUrl) ? (
-                        <a href={u.productUrl} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline" aria-label={`Listing for ${soldTitle(u)} (opens in new tab)`}>↗</a>
+                        <ExternalLink href={u.productUrl} className="text-brand hover:underline" ariaLabel={`Listing for ${soldTitle(u)}`}>↗</ExternalLink>
                       ) : (
                         <span aria-hidden="true" className="w-2 text-center text-ink-faint">—</span>
                       )}

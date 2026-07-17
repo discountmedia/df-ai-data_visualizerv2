@@ -5,6 +5,7 @@ import { cn } from "@/lib/format";
 import { Pager } from "@/components/ui/Pager";
 import { SortHeader } from "@/components/ui/SortHeader";
 import { CopyText } from "@/components/ui/CopyText";
+import { ExternalLink } from "@/components/ui/ExternalLink";
 import { printTable } from "@/lib/printTable";
 
 export interface Column<T> {
@@ -236,7 +237,7 @@ function renderCell<T>(c: Column<T>, row: T): ReactNode {
     const url = c.href(row);
     if (!url) return <span className="text-ink-faint">—</span>;
     const label = c.linkLabel ? c.linkLabel(row) : "Open ↗";
-    return <a href={url} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">{label}</a>;
+    return <ExternalLink href={url} className="text-brand hover:underline">{label}</ExternalLink>;
   }
   if (c.copy) {
     const val = c.copy(row);

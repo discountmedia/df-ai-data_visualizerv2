@@ -6,6 +6,7 @@ import { fmtMoneyExact } from "@/lib/format";
 import { unitTitle } from "@/components/tabs/shared";
 import { WorkPill, SalePill } from "@/components/ui/Pills";
 import { CopyText } from "@/components/ui/CopyText";
+import { ExternalLink } from "@/components/ui/ExternalLink";
 
 const isUrl = (v: string | null | undefined): v is string => !!v && /^https?:\/\//i.test(v);
 
@@ -73,7 +74,7 @@ export function UnitDetail({ u }: { u: UnitRecord }) {
         <div className="flex flex-wrap gap-2">
           {links.map((l) => (
             <span key={l.k} className="inline-flex items-center gap-1.5 border border-line px-2.5 py-1 text-[13px]">
-              <a href={l.href!} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">{l.k} ↗</a>
+              <ExternalLink href={l.href!} className="text-brand hover:underline">{l.k} ↗</ExternalLink>
               <CopyText value={l.href!} label={`${l.k} link`} />
             </span>
           ))}
