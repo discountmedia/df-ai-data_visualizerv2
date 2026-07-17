@@ -101,6 +101,11 @@ export const PRO_BRIDGE_SCRIPT = `(function () {
  * the lead dev) and its handler can respond. No-op in a normal browser (no
  * window.FileMaker).
  *
+ * It fires exactly once, WHEN window.FileMaker is present — immediately if already
+ * injected, else via a short capped poll (~10s). Nothing re-polls fileMakerBlocked()
+ * the way FileMaker re-polls fileMakerReady(), so a one-shot call at parse could
+ * race ahead of FileMaker's injection and be lost; the poll closes that gap.
+ *
  * ⚠️ This reintroduces a FileMaker callback on the 401 page. An earlier "error"
  * signal here crashed the FileMaker app, so this relies on the FileMaker side now
  * handling responseAction "blocked" from this page WITHOUT crashing.
@@ -108,18 +113,25 @@ export const PRO_BRIDGE_SCRIPT = `(function () {
 export const PRO_BLOCKED_SCRIPT = `(function () {
   var CALLBACK_SCRIPT = "Inventory Analysis Return";
   var CALLBACK_OPTION = "5";
+  var sent = false, tries = 0, MAX = 100; // poll ~10s (100 x 100ms) then give up
   function bridgePresent() {
     return typeof window.FileMaker !== "undefined" && window.FileMaker &&
       typeof window.FileMaker.PerformScriptWithOption === "function";
   }
   function fileMakerBlocked() {
-    if (bridgePresent()) {
-      window.FileMaker.PerformScriptWithOption(CALLBACK_SCRIPT, JSON.stringify({
-        requestId: "health_check", responseAction: "blocked",
-        responseMessage: "Access was blocked; the page will not initialize."
-      }), CALLBACK_OPTION);
-    }
+    if (sent || !bridgePresent()) return;
+    sent = true;
+    window.FileMaker.PerformScriptWithOption(CALLBACK_SCRIPT, JSON.stringify({
+      requestId: "health_check", responseAction: "blocked",
+      responseMessage: "Access was blocked; the page will not initialize."
+    }), CALLBACK_OPTION);
   }
   window.fileMakerBlocked = fileMakerBlocked;
   fileMakerBlocked();
+  if (!sent) {
+    var t = setInterval(function () {
+      fileMakerBlocked();
+      if (sent || ++tries >= MAX) clearInterval(t);
+    }, 100);
+  }
 })();`;
