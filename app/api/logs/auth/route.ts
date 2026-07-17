@@ -1,32 +1,29 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifySession } from "@/lib/authToken";
-import { logsConfigured, logsSigningKey, isAllowedAccount, logsPublic } from "@/lib/logsAuth";
+import { logsConfigured, logsPublic } from "@/lib/logsAuth";
+import { hasAllowlistedLogsAccess } from "@/lib/logsSession";
 
 export const runtime = "nodejs";
 
 const COOKIE = "df_logs_session";
 
 /**
- * GET → { configured, authed } so the logs page knows what to show. There is no
- * password login: access is granted by opening a signed URL whose account is in
- * LOGS_ACCOUNTS (verified in middleware → handleLogsAccess, which sets the
- * df_logs_session cookie). This endpoint only reports the current state.
+ * GET → { configured, authed } so the logs page knows what to show. Access is
+ * granted either by a signed `/logs` link (df_logs_session) OR by an allowlisted
+ * account's normal PRO app-session (df_pro_session) — see lib/logsSession. When
+ * LOGS_PUBLIC is on (auth gate off), it's open to anyone.
  */
 export async function GET() {
-  // LOGS_PUBLIC=true → logs are open to anyone (testing only; no signed link).
   if (logsPublic()) return NextResponse.json({ configured: true, authed: true });
   if (!logsConfigured()) return NextResponse.json({ configured: false, authed: false });
-  const cookie = (await cookies()).get(COOKIE)?.value;
-  let authed = false;
-  if (cookie) {
-    const sess = await verifySession(logsSigningKey(), cookie, Date.now());
-    authed = sess.ok && isAllowedAccount(sess.account); // re-check the allowlist every time
-  }
+  const authed = await hasAllowlistedLogsAccess(Date.now());
   return NextResponse.json({ configured: true, authed });
 }
 
-/** DELETE → log out (clear the cookie). */
+/**
+ * DELETE → log out of a signed-link logs session (clears df_logs_session).
+ * Note: allowlisted access via the PRO app-session persists — that's the app
+ * login itself, not a separate logs session.
+ */
 export async function DELETE(req: Request) {
   const res = NextResponse.json({ ok: true });
   res.cookies.set(COOKIE, "", { httpOnly: true, sameSite: "lax", secure: new URL(req.url).protocol === "https:", path: "/", maxAge: 0 });

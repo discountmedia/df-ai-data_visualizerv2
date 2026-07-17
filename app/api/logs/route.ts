@@ -1,51 +1,24 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifySession } from "@/lib/authToken";
-import { logsConfigured, logsSigningKey, isAllowedAccount, logsPublic } from "@/lib/logsAuth";
+import { logsConfigured, logsPublic } from "@/lib/logsAuth";
 import { queryLogs, LOG_SORT_COLUMNS, type LogSortKey, type LogType } from "@/lib/logStore";
-import { safeLog } from "@/lib/apiLog";
+import { hasAllowlistedLogsAccess } from "@/lib/logsSession";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const COOKIE = "df_logs_session";
 const PAGE_SIZE = 50;
 const TYPES: (LogType | "all")[] = ["all", "auth", "performance", "error", "system"];
 
-/** GET → paginated, sorted, filtered log rows. Requires the logs session cookie. */
+/**
+ * GET → paginated, sorted, filtered log rows. Authorized when LOGS_PUBLIC is on
+ * (auth gate off), or for an allowlisted logs/PRO session (see lib/logsSession).
+ */
 export async function GET(req: Request) {
-  // LOGS_PUBLIC=true opens the viewer to anyone (testing only) — skip the signed
-  // session + allowlist checks entirely. Otherwise enforce them as before.
   if (!logsPublic()) {
-    if (!logsConfigured()) return NextResponse.json({ error: "Logs login is not configured.", configured: false }, { status: 503 });
-
-    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
-    const cookie = (await cookies()).get(COOKIE)?.value;
-    if (cookie) {
-      const sess = await verifySession(logsSigningKey(), cookie, Date.now());
-      if (!sess.ok) {
-        // Present cookie whose HMAC is rejected = a tampered/forged logs session → alert.
-        if (sess.reason === "bad session signature") {
-          void safeLog({
-            type: "auth", level: "alert", name: "logs.session.rejected",
-            message: "Tampered logs session cookie (HMAC signature rejected)",
-            ip, path: "/api/logs", method: "GET", userAgent: req.headers.get("user-agent"),
-          });
-        }
-        return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-      }
-      if (!isAllowedAccount(sess.account)) {
-        // Valid session, but the account was removed from the allowlist → revoked.
-        void safeLog({
-          type: "auth", level: "alert", name: "logs.access.revoked",
-          message: `Logs session for "${sess.account ?? ""}" rejected: account no longer in allowlist`,
-          ip, path: "/api/logs", method: "GET", account: sess.account, userAgent: req.headers.get("user-agent"),
-        });
-        return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-      }
-    } else {
+    if (!logsConfigured())
+      return NextResponse.json({ error: "Logs access is not configured.", configured: false }, { status: 503 });
+    if (!(await hasAllowlistedLogsAccess(Date.now())))
       return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-    }
   }
 
   const url = new URL(req.url);
