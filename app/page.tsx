@@ -28,7 +28,7 @@ export default function Page() {
   const {
     phase, parsed, entities, schema, overrides, error, reset,
     activeTab, setTab, locationFilter, loadAutoData, enterWaiting, simulateProPush,
-    schemaRefining, financials, media,
+    schemaRefining, financials, media, back, forward, canGoBack, canGoForward,
   } = useDashboard();
 
   // The header "AI Analysis" button opens a company-wide AI read in a modal popup
@@ -122,6 +122,10 @@ export default function Page() {
         onAnalyze={onAnalyze}
         refining={schemaRefining}
         search={<GlobalSearch units={allUnits} />}
+        onBack={back}
+        onForward={forward}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
       />
       {showLocationBar && (
         <div className="border-b border-line bg-ground/60">

@@ -17,6 +17,10 @@ export function Header({
   onAnalyze,
   refining,
   search,
+  onBack,
+  onForward,
+  canGoBack,
+  canGoForward,
 }: {
   tabs: TabDef[];
   activeTab: string;
@@ -24,6 +28,10 @@ export function Header({
   onAnalyze?: () => void;
   refining?: boolean;
   search?: ReactNode;
+  onBack?: () => void;
+  onForward?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-ground/90 backdrop-blur">
@@ -35,6 +43,12 @@ export function Header({
             <img src="/logo.png" alt="Discount Forklift" className="h-9 w-auto shrink-0 sm:h-11" />
             <span className="hidden shrink-0 text-[13px] uppercase tracking-wider text-ink-dim lg:inline">Discount Forklift - Inventory Overview</span>
           </div>
+          {(onBack || onForward) && (
+            <div className="flex shrink-0 items-center gap-1" aria-label="Page history navigation">
+              <NavBtn label="Back" glyph="‹" onClick={onBack} disabled={!canGoBack} />
+              <NavBtn label="Forward" glyph="›" onClick={onForward} disabled={!canGoForward} />
+            </div>
+          )}
           {search && <div className="flex min-w-0 flex-1 justify-center">{search}</div>}
           <div className="flex shrink-0 items-center gap-2">
             {refining && (
@@ -77,5 +91,21 @@ export function Header({
         </nav>
       </div>
     </header>
+  );
+}
+
+/** Back / Forward history control (the chromeless Web Viewer has no browser nav). */
+function NavBtn({ label, glyph, onClick, disabled }: { label: string; glyph: string; onClick?: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className="border border-line px-2.5 py-1.5 text-base leading-none text-ink-dim transition-colors enabled:hover:border-brand enabled:hover:text-ink disabled:opacity-30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+    >
+      <span aria-hidden="true">{glyph}</span>
+    </button>
   );
 }

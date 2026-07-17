@@ -40,6 +40,9 @@ interface State {
   error?: string;
   locationFilter: string;
   activeTab: string;
+  /** In-app nav history — the chromeless Web Viewer has no browser back/forward. */
+  navHistory: { tab: string; location: string }[];
+  navPointer: number;
   /** True while the AI schema is being refined in the background (data already shown). */
   schemaRefining: boolean;
   /** Gross-profit data from the fullnew export — loaded in the background, undefined until ready. */
@@ -59,6 +62,8 @@ type Action =
   | { type: "ERROR"; error: string }
   | { type: "SET_LOCATION"; location: string }
   | { type: "SET_TAB"; tab: string }
+  | { type: "NAV_BACK" }
+  | { type: "NAV_FORWARD" }
   | { type: "SET_FINANCIALS"; financials: FinancialSummary }
   | { type: "SET_MEDIA"; media: MediaProduction }
   | { type: "BACK_TO_REVIEW" }
@@ -70,6 +75,8 @@ const initialState: State = {
   usedFallback: false,
   locationFilter: "ALL",
   activeTab: "",
+  navHistory: [{ tab: "", location: "ALL" }],
+  navPointer: 0,
   schemaRefining: false,
 };
 
@@ -94,12 +101,13 @@ function reducer(state: State, action: Action): State {
     case "READY":
       // Reset the location filter: the kept columns may have changed in review,
       // so a stale selection could otherwise filter on a now-vetoed column.
-      return { ...state, phase: "ready", overrides: action.overrides, locationFilter: "ALL", activeTab: "" };
+      return { ...state, phase: "ready", overrides: action.overrides, locationFilter: "ALL", activeTab: "", navHistory: [{ tab: "", location: "ALL" }], navPointer: 0 };
     case "READY_WITH_SCHEMA":
       // Auto-load path: infer + confirm in one step, no schema-review screen.
       return {
         ...state, phase: "ready", schema: action.schema, usedFallback: action.usedFallback,
         inferenceNote: action.note, overrides: action.overrides, locationFilter: "ALL", activeTab: "",
+        navHistory: [{ tab: "", location: "ALL" }], navPointer: 0,
         schemaRefining: action.refining ?? false,
       };
     case "UPGRADE_SCHEMA":
@@ -111,10 +119,30 @@ function reducer(state: State, action: Action): State {
       };
     case "ERROR":
       return { ...state, phase: "error", error: action.error };
-    case "SET_LOCATION":
-      return { ...state, locationFilter: action.location };
-    case "SET_TAB":
-      return { ...state, activeTab: action.tab };
+    case "SET_LOCATION": {
+      if (state.locationFilter === action.location) return state;
+      const base = state.navHistory.slice(0, state.navPointer + 1);
+      const navHistory = [...base, { tab: state.activeTab, location: action.location }];
+      return { ...state, locationFilter: action.location, navHistory, navPointer: navHistory.length - 1 };
+    }
+    case "SET_TAB": {
+      if (state.activeTab === action.tab) return state;
+      const base = state.navHistory.slice(0, state.navPointer + 1);
+      const navHistory = [...base, { tab: action.tab, location: state.locationFilter }];
+      return { ...state, activeTab: action.tab, navHistory, navPointer: navHistory.length - 1 };
+    }
+    case "NAV_BACK": {
+      if (state.navPointer <= 0) return state;
+      const p = state.navPointer - 1;
+      const s = state.navHistory[p];
+      return { ...state, navPointer: p, activeTab: s.tab, locationFilter: s.location };
+    }
+    case "NAV_FORWARD": {
+      if (state.navPointer >= state.navHistory.length - 1) return state;
+      const p = state.navPointer + 1;
+      const s = state.navHistory[p];
+      return { ...state, navPointer: p, activeTab: s.tab, locationFilter: s.location };
+    }
     case "SET_FINANCIALS":
       return { ...state, financials: action.financials };
     case "SET_MEDIA":
@@ -142,6 +170,10 @@ interface Ctx extends State {
   backToReview: () => void;
   setLocation: (loc: string) => void;
   setTab: (tab: string) => void;
+  back: () => void;
+  forward: () => void;
+  canGoBack: boolean;
+  canGoForward: boolean;
   reset: () => void;
 }
 
@@ -363,6 +395,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     backToReview: () => dispatch({ type: "BACK_TO_REVIEW" }),
     setLocation: (loc) => dispatch({ type: "SET_LOCATION", location: loc }),
     setTab: (tab) => dispatch({ type: "SET_TAB", tab }),
+    back: () => dispatch({ type: "NAV_BACK" }),
+    forward: () => dispatch({ type: "NAV_FORWARD" }),
+    canGoBack: state.navPointer > 0,
+    canGoForward: state.navPointer < state.navHistory.length - 1,
     reset: () => dispatch({ type: "RESET" }),
   };
 
