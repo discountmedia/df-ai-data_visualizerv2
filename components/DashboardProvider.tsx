@@ -305,7 +305,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       const parsed = mergeSources(v2, v1);
       await ingestParsed(parsed);
     } catch (err) {
-      dispatch({ type: "ERROR", error: err instanceof Error ? err.message : "Could not auto-load data." });
+      // The bundled test data is dev-only and may be absent (it's stripped from
+      // public/ for prod). A failed auto-load must NOT hard-error the app — fall
+      // back to the "waiting for PRO" state, exactly like production.
+      console.warn("[auto-load] bundled data unavailable — waiting for PRO:", err instanceof Error ? err.message : err);
+      dispatch({ type: "WAITING" });
     }
   }, [ingestParsed]);
 
