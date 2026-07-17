@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySession } from "@/lib/authToken";
-import { logsConfigured, logsSigningKey, isAllowedAccount } from "@/lib/logsAuth";
+import { logsConfigured, logsSigningKey, isAllowedAccount, logsPublic } from "@/lib/logsAuth";
 
 export const runtime = "nodejs";
 
@@ -14,6 +14,8 @@ const COOKIE = "df_logs_session";
  * df_logs_session cookie). This endpoint only reports the current state.
  */
 export async function GET() {
+  // LOGS_PUBLIC=true → logs are open to anyone (testing only; no signed link).
+  if (logsPublic()) return NextResponse.json({ configured: true, authed: true });
   if (!logsConfigured()) return NextResponse.json({ configured: false, authed: false });
   const cookie = (await cookies()).get(COOKIE)?.value;
   let authed = false;

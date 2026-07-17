@@ -29,6 +29,16 @@ export function isAllowedAccount(account: string | null | undefined): boolean {
   return logsAccounts().has(account.trim().toLowerCase());
 }
 
+/**
+ * Testing-phase override: LOGS_PUBLIC=true opens the logs viewer to ANYONE — no
+ * signed link, no LOGS_ACCOUNTS allowlist. ⚠️ Exposes IPs / user-agents / request
+ * headers / access events publicly. Testing only — unset before go-live. Still
+ * needs DATABASE_URL for there to be logs to read.
+ */
+export function logsPublic(): boolean {
+  return (process.env.LOGS_PUBLIC || "").trim().toLowerCase() === "true";
+}
+
 /** Logs auth needs both an allowlist AND the shared secret (to verify tokens). */
 export function logsConfigured(): boolean {
   return logsAccounts().size > 0 && !!process.env.INVENTORY_ANALYSIS_SECRET;

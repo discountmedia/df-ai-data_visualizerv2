@@ -12,7 +12,6 @@ import { SalesNumbersView } from "@/components/financials/SalesNumbersView";
 import { WorkStageView } from "@/components/tabs/WorkStageView";
 import { OctaneView } from "@/components/tabs/OctaneView";
 import { MediaView } from "@/components/media/MediaView";
-import { AdminUploads } from "@/components/admin/AdminUploads";
 import { LogsView } from "@/components/logs/LogsView";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { LoadingState, ErrorState, EmptyState, WaitingState } from "@/components/states/States";
@@ -97,16 +96,13 @@ export default function Page() {
     // Financials tab is hidden until the owner gives the go-ahead (see lib/features.ts).
     ...(FINANCIALS_ENABLED ? [{ id: "financials", label: "Financials", count: financials?.available ? financials.gpCount : null }] : []),
     { id: "octane", label: "OCTANE", count: octane.length },
-    // Temporary admin tab for manual CSV uploads. Goes away once FileMaker Pro
-    // pushes a JSON payload to the backend directly.
-    { id: "admin", label: "Admin", count: null },
-    // Password-gated logs viewer (own login; also at /logs). Bubble = unseen alerts.
+    // Logs / observability viewer (also at /logs). Bubble = unseen alerts.
     { id: "logs", label: "Logs", count: null },
   ];
   // The location filter applies to Overview, Work Stage, Sales Team, Media, and
   // OCTANE. Financials is company-wide and Admin isn't location-scoped, so hide
   // the bar there rather than leave a dead control.
-  const showLocationBar = filterBar.length > 0 && current !== "financials" && current !== "admin" && current !== "logs";
+  const showLocationBar = filterBar.length > 0 && current !== "financials" && current !== "logs";
   // Header button → open the company-wide AI read in a modal (runs immediately).
   // Stays on the current tab; the popup overlays everything.
   const onAnalyze = () => setOverallAi(true);
@@ -145,7 +141,6 @@ export default function Page() {
         {current === "media" && <MediaView units={dfFiltered} production={media} />}
         {FINANCIALS_ENABLED && current === "financials" && <SalesNumbersView financials={financials} />}
         {current === "octane" && <OctaneView units={octaneFiltered} />}
-        {current === "admin" && <AdminUploads />}
         {current === "logs" && <LogsView />}
       </main>
       {overallAi && (

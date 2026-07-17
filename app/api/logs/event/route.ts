@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySession } from "@/lib/authToken";
-import { logsSigningKey, logsConfigured, isAllowedAccount } from "@/lib/logsAuth";
+import { logsSigningKey, logsConfigured, isAllowedAccount, logsPublic } from "@/lib/logsAuth";
 import { safeLog } from "@/lib/apiLog";
 
 export const runtime = "nodejs";
@@ -14,6 +14,7 @@ const CLIENT_EVENTS = new Set(["pro.push.received", "pro.push.error"]);
  *  open in local dev. Keeps the gate-exempt endpoint from being a public writer. */
 async function authorized(): Promise<boolean> {
   if (process.env.NODE_ENV !== "production") return true;
+  if (logsPublic()) return true; // logs opened to anyone (testing) → allow client events too
   const store = await cookies();
   const now = Date.now();
   const proSecret = process.env.INVENTORY_ANALYSIS_SECRET;
