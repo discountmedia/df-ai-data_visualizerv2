@@ -15,6 +15,10 @@
  *   • fileMakerSend(requestId, responseAction, responseMessage) — the receipt,
  *     via FileMaker.PerformScriptWithOption('Inventory Analysis Return', json,'5').
  *   • fileMakerReady() — health-check ping (requestId "health_check").
+ *   • fileMakerBlocked() — defined + exposed but NOT auto-called; FileMaker/app
+ *     invokes it to signal a blocked load (responseAction "blocked"), per the
+ *     lead dev. (Calling FileMaker from the middleware 401 page crashed the app,
+ *     so the signal lives here on the real page instead.)
  * All values are strings. We add NO retry loop (the FileMaker side owns retries).
  *
  * Kept as plain ES5 (var/function) because it runs verbatim (not transpiled).
@@ -25,6 +29,7 @@ declare global {
     fileMakerReceive?: (jsonString: string) => void;
     fileMakerSend?: (requestId: string, responseAction: string, responseMessage: string) => void;
     fileMakerReady?: () => void;
+    fileMakerBlocked?: () => void;
     FileMaker?: {
       PerformScriptWithOption?: (scriptName: string, scriptParameter: string, scriptOption: string) => void;
     };
@@ -83,8 +88,20 @@ export const PRO_BRIDGE_SCRIPT = `(function () {
       }), CALLBACK_OPTION);
     }
   }
+  // Signal a blocked load to FileMaker (per the lead dev). Defined + exposed but
+  // NOT auto-called — FileMaker or app logic calls window.fileMakerBlocked() when
+  // a block is detected, so it never fires (or crashes) unexpectedly.
+  function fileMakerBlocked() {
+    if (bridgePresent()) {
+      window.FileMaker.PerformScriptWithOption(CALLBACK_SCRIPT, JSON.stringify({
+        requestId: "health_check", responseAction: "blocked",
+        responseMessage: "Access was blocked; the page will not initialize."
+      }), CALLBACK_OPTION);
+    }
+  }
   window.fileMakerReceive = fileMakerReceive;
   window.fileMakerSend = fileMakerSend;
   window.fileMakerReady = fileMakerReady;
+  window.fileMakerBlocked = fileMakerBlocked;
   fileMakerReady();
 })();`;
