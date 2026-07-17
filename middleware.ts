@@ -115,9 +115,9 @@ function logAccess(req: NextRequest, ev: NextFetchEvent, name: string, baseLevel
 
 function denied(reason: string): NextResponse {
   // On a 401 the page runs a MINIMAL clone (PRO_BLOCKED_SCRIPT — only
-  // fileMakerReady() + fileMakerBlocked(), NOT the full bridge), so FileMaker gets
-  // the ready ping + the "blocked" signal and its handler can respond (per the
-  // lead dev). No-op in a normal browser (no window.FileMaker).
+  // fileMakerBlocked(), NOT the full bridge), so FileMaker gets the "blocked"
+  // signal and its handler can respond (per the lead dev). No-op in a normal
+  // browser (no window.FileMaker).
   const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Access denied</title></head><body style="margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b0b0c;color:#e5e5e7;display:grid;place-items:center;min-height:100vh"><div style="text-align:center;max-width:30rem;padding:2rem"><div style="color:#ff2b2b;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.72rem">Access denied</div><h1 style="font-size:1.15rem;font-weight:600;margin:.6rem 0 .5rem">Open this dashboard from Discount Forklift PRO</h1><p style="color:#84848c;font-size:.9rem;line-height:1.5">This tool is served through PRO with a signed, time-limited link. Direct access isn't permitted.</p></div><script>${PRO_BLOCKED_SCRIPT}</script></body></html>`;
   return new NextResponse(body, {
     status: 401,

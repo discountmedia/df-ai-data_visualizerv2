@@ -18,8 +18,7 @@
  * All values are strings. We add NO retry loop (the FileMaker side owns retries).
  *
  * The 401 "access denied" page does NOT use this full bridge — it uses a separate
- * minimal clone, PRO_BLOCKED_SCRIPT (below), that runs only fileMakerReady() +
- * fileMakerBlocked() and nothing else.
+ * minimal clone, PRO_BLOCKED_SCRIPT (below), that runs only fileMakerBlocked().
  *
  * Kept as plain ES5 (var/function) because it runs verbatim (not transpiled).
  */
@@ -96,15 +95,15 @@ export const PRO_BRIDGE_SCRIPT = `(function () {
 
 /**
  * 401 "access denied" page ONLY — a minimal, standalone clone of the bridge that
- * installs and runs JUST fileMakerReady() + fileMakerBlocked() and nothing else
- * (no receive / send / buffer / pro:payload). Injected by middleware.ts into the
- * denied page so that on a blocked load FileMaker gets the ready ping AND the
- * "blocked" signal (per the lead dev), and its handler can respond. No-op in a
- * normal browser (no window.FileMaker).
+ * installs and runs JUST fileMakerBlocked() and nothing else (no ready, no
+ * receive / send / buffer / pro:payload). Injected by middleware.ts into the
+ * denied page so that on a blocked load FileMaker gets the "blocked" signal (per
+ * the lead dev) and its handler can respond. No-op in a normal browser (no
+ * window.FileMaker).
  *
  * ⚠️ This reintroduces a FileMaker callback on the 401 page. An earlier "error"
  * signal here crashed the FileMaker app, so this relies on the FileMaker side now
- * handling responseAction "blocked"/"ready" from this page WITHOUT crashing.
+ * handling responseAction "blocked" from this page WITHOUT crashing.
  */
 export const PRO_BLOCKED_SCRIPT = `(function () {
   var CALLBACK_SCRIPT = "Inventory Analysis Return";
@@ -112,14 +111,6 @@ export const PRO_BLOCKED_SCRIPT = `(function () {
   function bridgePresent() {
     return typeof window.FileMaker !== "undefined" && window.FileMaker &&
       typeof window.FileMaker.PerformScriptWithOption === "function";
-  }
-  function fileMakerReady() {
-    if (bridgePresent()) {
-      window.FileMaker.PerformScriptWithOption(CALLBACK_SCRIPT, JSON.stringify({
-        requestId: "health_check", responseAction: "ready",
-        responseMessage: "The JavaScript engine is loaded and ready."
-      }), CALLBACK_OPTION);
-    }
   }
   function fileMakerBlocked() {
     if (bridgePresent()) {
@@ -129,8 +120,6 @@ export const PRO_BLOCKED_SCRIPT = `(function () {
       }), CALLBACK_OPTION);
     }
   }
-  window.fileMakerReady = fileMakerReady;
   window.fileMakerBlocked = fileMakerBlocked;
-  fileMakerReady();
   fileMakerBlocked();
 })();`;
