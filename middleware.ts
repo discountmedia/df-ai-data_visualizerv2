@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 import { verifyProToken, issueSession, verifySession } from "@/lib/authToken";
 import { logsAccounts, isAllowedAccount } from "@/lib/logsAuth";
-import { PRO_READY_PING_SCRIPT } from "@/lib/proBridgeScript";
+import { PRO_DENIED_SIGNAL_SCRIPT } from "@/lib/proBridgeScript";
 
 /**
  * Hosted-mode auth gate for the PRO (FileMaker) Web Viewer.
@@ -114,12 +114,13 @@ function logAccess(req: NextRequest, ev: NextFetchEvent, name: string, baseLevel
 }
 
 function denied(reason: string): NextResponse {
-  // The denied page ships ONLY a tiny fileMakerReady() ping (not the full bridge).
-  // A blocked page would otherwise have no ready ping, so FileMaker never gets it
-  // and keeps re-navigating → an infinite 401 refresh loop. Pinging ready even
-  // when blocked breaks that loop. The ping's guard makes it a no-op in a normal
-  // browser (no window.FileMaker), so a human who hits 401 just sees this page.
-  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Access denied</title></head><body style="margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b0b0c;color:#e5e5e7;display:grid;place-items:center;min-height:100vh"><div style="text-align:center;max-width:30rem;padding:2rem"><div style="color:#ff2b2b;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.72rem">Access denied</div><h1 style="font-size:1.15rem;font-weight:600;margin:.6rem 0 .5rem">Open this dashboard from Discount Forklift PRO</h1><p style="color:#84848c;font-size:.9rem;line-height:1.5">This tool is served through PRO with a signed, time-limited link. Direct access isn't permitted.</p></div><script>${PRO_READY_PING_SCRIPT}</script></body></html>`;
+  // The denied page fires ONE "denied" callback to FileMaker (responseAction
+  // "error", requestId "auth_denied") so the FileMaker handler can STOP
+  // re-navigating and show a message — otherwise a 401 makes FileMaker re-load the
+  // same rejecting URL forever (infinite refresh loop). It deliberately does NOT
+  // say "ready" (that would tell FileMaker to proceed, feeding the loop). No-op in
+  // a normal browser (no window.FileMaker), so a human who hits 401 just sees this.
+  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Access denied</title></head><body style="margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b0b0c;color:#e5e5e7;display:grid;place-items:center;min-height:100vh"><div style="text-align:center;max-width:30rem;padding:2rem"><div style="color:#ff2b2b;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.72rem">Access denied</div><h1 style="font-size:1.15rem;font-weight:600;margin:.6rem 0 .5rem">Open this dashboard from Discount Forklift PRO</h1><p style="color:#84848c;font-size:.9rem;line-height:1.5">This tool is served through PRO with a signed, time-limited link. Direct access isn't permitted.</p></div><script>${PRO_DENIED_SIGNAL_SCRIPT}</script></body></html>`;
   return new NextResponse(body, {
     status: 401,
     headers: { "content-type": "text/html; charset=utf-8", "x-auth-gate": reason },

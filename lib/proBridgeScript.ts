@@ -90,24 +90,27 @@ export const PRO_BRIDGE_SCRIPT = `(function () {
 })();`;
 
 /**
- * Minimal ready-ping — installs ONLY window.fileMakerReady() and calls it once.
- * Injected into the 401 "access denied" page (middleware) to break FileMaker's
- * infinite refresh loop: a blocked page must still send the ready ping so
- * FileMaker stops re-navigating, but it must NOT ship the full bridge (no
- * receive/send/buffer — the app isn't loaded). Same contract as the bridge's
- * fileMakerReady (callback script + option kept in sync). No-op in a normal
- * browser (no window.FileMaker).
+ * Denied-page signal — injected into the 401 "access denied" page (middleware).
+ *
+ * When the gate rejects a signed link (bad / expired signature), the page can't
+ * stop FileMaker from re-navigating on its own — but it CAN tell FileMaker the
+ * load was DENIED so the FileMaker "Inventory Analysis Return" handler can stop
+ * the re-navigation loop and show a message. It fires ONE callback with
+ * responseAction "error" + requestId "auth_denied" (deliberately NOT "ready" —
+ * "ready" would tell FileMaker to proceed, which feeds the loop). No bridge, no
+ * receive; no-op in a normal browser (no window.FileMaker).
+ *
+ * FileMaker-side contract to mitigate the loop: on requestId "auth_denied" /
+ * responseAction "error", DO NOT reload the Web Viewer — surface the message and
+ * require a fresh signed link.
  */
-export const PRO_READY_PING_SCRIPT = `(function () {
-  function ready() {
-    var fm = window.FileMaker;
-    if (fm && typeof fm.PerformScriptWithOption === "function") {
-      fm.PerformScriptWithOption("Inventory Analysis Return", JSON.stringify({
-        requestId: "health_check", responseAction: "ready",
-        responseMessage: "The JavaScript engine is loaded and ready."
-      }), "5");
-    }
+export const PRO_DENIED_SIGNAL_SCRIPT = `(function () {
+  var fm = window.FileMaker;
+  if (fm && typeof fm.PerformScriptWithOption === "function") {
+    fm.PerformScriptWithOption("Inventory Analysis Return", JSON.stringify({
+      requestId: "auth_denied",
+      responseAction: "error",
+      responseMessage: "Access denied: the signed link is invalid or expired. Regenerate a fresh link; do not reload."
+    }), "5");
   }
-  window.fileMakerReady = ready;
-  ready();
 })();`;
