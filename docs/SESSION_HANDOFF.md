@@ -52,11 +52,14 @@ the Vercel dashboard, or check Settings → Git (repo is `discountmedia/…`, sc
   Outreach chart (email data isn't in the PRO staff contract).
 - **Print-to-PDF** needs on-device confirmation the FileMaker Web Viewer surfaces a
   "Save as PDF" dialog (`lib/printTable.ts` uses an isolated hidden-iframe print).
-- **Uncommitted, intentionally excluded** (still in the working tree): `public/public.7z`
-  (a ~3 MB archive that would be publicly downloadable — do NOT commit; delete or
-  gitignore), `public/DF Data View Logo.png` (2.9 MB, unreferenced),
-  `scripts/gen-pro-url.mjs` (signed-URL minter). Optionally fully remove the
-  now-hidden `/admin` route + the unauthenticated `/api/upload` writer before go-live.
+- **Uncommitted, intentionally left in the working tree** (harmless): `public/DF Data View Logo.png`
+  (2.9 MB, unreferenced) and `scripts/gen-pro-url.mjs` (signed-URL minter). (The owner
+  deleted `public/public.7z` — it would otherwise have been publicly downloadable.)
+  Optionally fully remove the now-hidden `/admin` route + the unauthenticated
+  `/api/upload` writer before go-live.
+- **Bundled test data was stripped** from `public/` (the test `.xlsx` deletions are
+  committed), so **dev auto-load 404s locally** — restore the xlsx to develop with
+  data, or drive a PRO push. Prod is unaffected (it waits for PRO).
 
 ## Handy facts
 - Verify prod gate: `curl -sS -o /dev/null -w "%{http_code}" https://df-ai-data-visualizerv2.vercel.app/` (200 = gate off, 401 = on).

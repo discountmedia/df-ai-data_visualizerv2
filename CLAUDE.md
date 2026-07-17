@@ -52,6 +52,12 @@ dev, `false` in production; override with `NEXT_PUBLIC_AUTO_LOAD_BUNDLED`):
   push" button reprojects the bundled data into the PRO CSV contract and drives
   the real ingest path — `simulateProPush`.)
 
+> ⚠️ **The bundled test `.xlsx` were stripped from `public/` (owner, 2026-07-17).**
+> So dev auto-load (and the Simulate-PRO-push button) now **404 locally** until the
+> files are restored to `public/`. Prod already waits for a live PRO push, so it's
+> unaffected. To develop locally with data again: restore the xlsx, or drive a PRO
+> push.
+
 Do not reintroduce an upload/landing page as the default entry. Both paths
 converge on one no-review ingest (`DashboardProvider → ingestParsed`): the instant
 heuristic schema is shown, then the AI refine is swapped in behind it.
@@ -476,8 +482,9 @@ lib/                    types, parseFile, mergeSources (Record-UUID join), fromP
                         deriveUnits/deriveSales/deriveMetrics, deriveFinancials,
                         deriveMedia/deriveMediaProduction, score, categories,
                         categoryConfig, pivot, anthropic, *Client.ts, printTable (isolated-iframe print→PDF), format, features, sampleData
-public/                CURATEDV2-TESTING.xlsx (primary inventory) + CuratedFields-TEST.xlsx (entities)
-                       + new-vals.xlsx (media-production tracker), logo.png, favicon.ico
+public/                logo.png, favicon.ico  (+ untracked, unused DF Data View Logo.png)
+                       ⚠️ the bundled test xlsx — CURATEDV2-TESTING / CuratedFields-TEST /
+                       new-vals — were STRIPPED 2026-07-17; restore them to use dev auto-load again
 Discount Forklift Design System/   brand system + UI kit reference (not built by next)
 ```
 
