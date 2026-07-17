@@ -35,6 +35,9 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
   // company-wide — they're queue/source totals, not per-rep — so the panels that
   // receive `view` simply get the unchanged values via the spread.
   const scoped = locationFilter !== "ALL";
+  // The unsigned-PandaDocs KPI is only meaningful per sales yard — hide it on the
+  // company-wide "ALL" view and the non-yard "Other" bucket (owner request).
+  const showUnsignedKpi = locationFilter !== "ALL" && locationFilter !== "Other";
   const view: SalesSummary = useMemo(() => {
     if (!scoped) return summary;
     const reps = summary.reps.filter((r) => locationBucket(r.location) === locationFilter);
@@ -128,7 +131,9 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
             accent="text-rent"
             sub={view.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
           />
-          <Card label="Unsigned Docs" value={fmt(view.unsignedCount)} accent="text-working" sub="Real open deals" onClick={view.unsignedWorklist.length ? () => setDrill({ title: "Unsigned PandaDocs — Chase These", units: view.unsignedWorklist }) : undefined} />
+          {showUnsignedKpi && (
+            <Card label="Unsigned Docs" value={fmt(view.unsignedCount)} accent="text-working" sub="Real open deals" onClick={view.unsignedWorklist.length ? () => setDrill({ title: "Unsigned PandaDocs — Chase These", units: view.unsignedWorklist }) : undefined} />
+          )}
         </div>
 
         {/* Engaging visuals */}
