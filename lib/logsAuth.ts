@@ -30,13 +30,23 @@ export function isAllowedAccount(account: string | null | undefined): boolean {
 }
 
 /**
- * Testing-phase override: LOGS_PUBLIC=true opens the logs viewer to ANYONE — no
- * signed link, no LOGS_ACCOUNTS allowlist. ⚠️ Exposes IPs / user-agents / request
- * headers / access events publicly. Testing only — unset before go-live. Still
- * needs DATABASE_URL for there to be logs to read.
+ * Is the logs viewer open to anyone (no signed link, no LOGS_ACCOUNTS allowlist)?
+ *
+ *   LOGS_PUBLIC=true  → always public.
+ *   LOGS_PUBLIC=false → always gated.
+ *   unset → follows the FileMaker gate: while AUTH_GATE is explicitly "off" (the
+ *           deliberate testing state, when the whole app is already public), the
+ *           logs viewer is public too — and it RE-SECURES automatically the moment
+ *           AUTH_GATE goes back to "on" for go-live.
+ *
+ * ⚠️ Public mode exposes IPs / user-agents / request headers / access events.
+ * Still needs DATABASE_URL for there to be logs to read.
  */
 export function logsPublic(): boolean {
-  return (process.env.LOGS_PUBLIC || "").trim().toLowerCase() === "true";
+  const flag = (process.env.LOGS_PUBLIC || "").trim().toLowerCase();
+  if (flag === "true") return true;
+  if (flag === "false") return false;
+  return (process.env.AUTH_GATE || "").trim().toLowerCase() === "off";
 }
 
 /** Logs auth needs both an allowlist AND the shared secret (to verify tokens). */
