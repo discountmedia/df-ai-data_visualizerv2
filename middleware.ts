@@ -64,7 +64,7 @@ const FILEMAKER_UA = /filemaker/i;
 
 type LogLevel = "info" | "warn" | "error" | "alert";
 
-function logAccess(req: NextRequest, ev: NextFetchEvent, name: string, baseLevel: LogLevel, message: string): void {
+function logAccess(req: NextRequest, ev: NextFetchEvent, name: string, baseLevel: LogLevel, message: string, extra?: Record<string, unknown>): void {
   const ua = req.headers.get("user-agent") || "";
   const ip =
     (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
@@ -92,7 +92,7 @@ function logAccess(req: NextRequest, ev: NextFetchEvent, name: string, baseLevel
     path: req.nextUrl.pathname,
     userAgent: ua,
     filemakerUa: isFileMakerUa,
-    meta: { headers },
+    meta: { headers, ...(extra ?? {}) },
   };
   // Console (Vercel runtime logs) as a fallback signal.
   if (level === "alert") console.warn(`[auth-gate][ALERT] ${name} — ` + JSON.stringify(entry));
@@ -146,7 +146,10 @@ async function handleLogsAccess(req: NextRequest, ev: NextFetchEvent): Promise<N
       res.reason === "bad signature" || res.reason === "wrong project" || res.reason === "undecodable payload";
     if (forged) {
       // Tampered/forged logs token → ALWAYS refuse (never fall through to a cookie).
-      logAccess(req, ev, "logs.signature.rejected", "alert", `logs forged token refused: ${res.reason}`);
+      logAccess(req, ev, "logs.signature.rejected", "alert", `logs forged token refused: ${res.reason}`, {
+        rxPayload: payload,
+        rxSignature: signature,
+      });
       return denied(res.reason ?? "bad signature");
     }
     // Stale / half-present → the page will fall back to any valid logs cookie.
@@ -216,7 +219,12 @@ async function gate(req: NextRequest, ev: NextFetchEvent): Promise<NextResponse>
       res.reason === "bad signature" || res.reason === "wrong project" || res.reason === "undecodable payload";
     if (forged) {
       // Tampered/forged token → ALWAYS refuse; never fall back to a cookie.
-      logAccess(req, ev, "gate.signature.rejected", "alert", `forged token refused: ${res.reason}`);
+      // Capture the exact payload+signature received so a rejection can be
+      // diagnosed (intact-but-wrong-secret vs mangled-in-transit).
+      logAccess(req, ev, "gate.signature.rejected", "alert", `forged token refused: ${res.reason}`, {
+        rxPayload: payload,
+        rxSignature: signature,
+      });
       return denied(res.reason ?? "bad signature");
     }
     // Genuinely-signed but stale (or half-present) token: log it, then fall
