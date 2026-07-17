@@ -38,8 +38,10 @@ Chrome) of `next start` or the deployed URL.
 ## How it runs (important — this is unusual)
 
 **No upload splash, no schema-review screen.** How data arrives depends on the
-environment, gated by `AUTO_LOAD_BUNDLED` (`lib/features.ts`: default `true` in
-dev, `false` in production; override with `NEXT_PUBLIC_AUTO_LOAD_BUNDLED`):
+environment, gated by `AUTO_LOAD_BUNDLED` (`lib/features.ts`: dev auto-loads unless
+`NEXT_PUBLIC_AUTO_LOAD_BUNDLED="false"`; **production ALWAYS waits for PRO — hard-
+forced off, no env override**, since `NEXT_PUBLIC_*` is build-time-inlined and must
+never re-enable the test-data load in prod):
 
 - **Production → waits for a PRO push.** The app shows a "waiting for PRO"
   state (`WaitingState`) and renders only once **PRO** — Discount Forklift's
@@ -501,7 +503,7 @@ reuse, don't assume they're live.
 | `ANTHROPIC_MODEL` | optional, default `claude-sonnet-4-6` |
 | `INVENTORY_ANALYSIS_SECRET` | **Shared secret for the hosted-mode auth gate** (HMAC-SHA256 signed-URL verification — see "PRO integration"). 64 hex chars, from the lead dev; server-only, never `NEXT_PUBLIC_`. When set in production the gate is ON; unset → gate OFF (fail-open). |
 | `AUTH_GATE` | optional override: `"on"` / `"off"`. Default: on in production (if the secret is set), off in dev. Set `AUTH_GATE=on` locally to test the gate. |
-| `NEXT_PUBLIC_AUTO_LOAD_BUNDLED` | optional `"true"`/`"false"` — force the bundled-data auto-load on/off. Default: on in dev, off in production (prod waits for a PRO push). |
+| `NEXT_PUBLIC_AUTO_LOAD_BUNDLED` | **dev only.** Production NEVER auto-loads (hard-forced off in `lib/features.ts` — always waits for a PRO push). In dev the bundled export auto-loads unless this is `"false"`. Safe to delete from Vercel. |
 | `LOGS_ACCOUNTS` | comma-separated account names allowed into `/logs` (e.g. `matt`), case-insensitive. Access is a signed link (same HMAC method as the gate) whose `account` is on this list; needs `INVENTORY_ANALYSIS_SECRET` (to verify) + `DATABASE_URL` (to read logs). Removing a name revokes access on the next request. |
 | `LOGS_PUBLIC` | optional `"true"`/`"false"`. `true` opens `/logs` + the Logs tab to **anyone** (no signed link / allowlist); `false` forces it gated. **Unset → follows the auth gate** (public whenever the gate is off, auto-secured when `AUTH_GATE=on` + secret). ⚠️ Public mode exposes IPs/UAs/headers — testing only. |
 | `DATABASE_URL` | Neon Postgres. **Now used by the logs viewer** (the `logs` table records in real time). Still dormant for the Admin CSV uploads (`/api/upload`). Without it the logs viewer + upload route 503; nothing else is affected. (`POSTGRES_URL` is accepted as an alias.) |

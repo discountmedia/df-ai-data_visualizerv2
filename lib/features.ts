@@ -18,13 +18,16 @@ export const FINANCIALS_ENABLED = false;
  * AUTO_LOAD_BUNDLED — whether to auto-load the bundled test spreadsheets on
  * startup.
  *
- * In production the app waits for a PRO (FileMaker) push and shows a "waiting"
- * state until real data arrives — no stand-in test numbers ever ship. In
- * dev/local it auto-loads the bundled export so the dashboard is populated
- * without FileMaker. Override explicitly with NEXT_PUBLIC_AUTO_LOAD_BUNDLED
- * ("true" / "false").
+ * PRODUCTION NEVER auto-loads: it always waits for a PRO (FileMaker) push and
+ * shows the "waiting" state until real data arrives — no stand-in test numbers,
+ * and (importantly) NO attempt to fetch the bundled test xlsx (which are stripped
+ * from `public/` anyway). This is HARD-FORCED off in prod regardless of any env
+ * var — `NEXT_PUBLIC_*` values are inlined at build time and must never be able to
+ * turn the test-data load back on in production.
+ *
+ * In dev/local it auto-loads the bundled export so the dashboard populates without
+ * FileMaker; set NEXT_PUBLIC_AUTO_LOAD_BUNDLED="false" to turn that off in dev too.
  */
 export const AUTO_LOAD_BUNDLED =
-  process.env.NEXT_PUBLIC_AUTO_LOAD_BUNDLED != null
-    ? process.env.NEXT_PUBLIC_AUTO_LOAD_BUNDLED === "true"
-    : process.env.NODE_ENV !== "production";
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_AUTO_LOAD_BUNDLED !== "false";

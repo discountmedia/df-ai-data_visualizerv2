@@ -28,9 +28,11 @@ files (`pro-*`, `pro-fixed-viewport-and-ui-overhaul`, `logs-observability-featur
    viewable for testing. Set it back to `on` (or delete the var) + redeploy.
    **Note:** flipping the gate on ALSO re-secures the Logs viewer (logs are public
    only while the gate is off — see below).
-2. **Verify `NEXT_PUBLIC_AUTO_LOAD_BUNDLED`** — must be `false`/removed for live PRO
-   data (`true` shows bundled TEST data). The bundled test `.xlsx` were stripped
-   from `public/` this session, so dev auto-load no longer has data locally.
+2. **`NEXT_PUBLIC_AUTO_LOAD_BUNDLED`** no longer matters in prod — production is
+   **hard-forced to never auto-load** bundled data (`lib/features.ts`), so it always
+   waits for a PRO push (no more curated-test-data fetch on launch). Safe to delete
+   the Vercel var. (The bundled test `.xlsx` were stripped from `public/` too, so
+   dev auto-load has no local data either.)
 3. **Logs public** is intentional for testing (`LOGS_PUBLIC` unset → follows the
    gate). It exposes IPs/UAs/headers — it re-secures automatically when the gate
    goes on, or set `LOGS_PUBLIC=false` to force it gated.
