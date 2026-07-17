@@ -73,14 +73,19 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
   return (
     <div className="space-y-5 fade-up">
       {scoring.tierCounts.act_now > 0 && (
-        <div className="card border-l-2 border-l-brand bg-brand/5 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => openTier("Act Now — committed but unfinished", "act_now")}
+          className="card card-hover group block w-full border-l-2 border-l-brand bg-brand/5 px-4 py-3 text-left transition-colors hover:border-brand focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+        >
           <p className="flex items-center gap-2 text-sm font-bold text-brand">
             <span aria-hidden="true">⚠</span>{fmt(scoring.tierCounts.act_now)} units need action now
+            <span aria-hidden="true" className="ml-auto text-ink-dim transition-colors group-hover:text-brand">→</span>
           </p>
           <p className="mt-1 text-[13px] text-ink-dim">
             Committed-but-unfinished units lead the queue — a customer has paid or committed and the unit isn&apos;t deliverable. These go first.
           </p>
-        </div>
+        </button>
       )}
 
       {/* Clickable tier KPIs — each pulls up the table of its units, like every
@@ -94,7 +99,7 @@ export function PriorityQueue({ scoring }: { scoring: ScoringResult }) {
             value={fmt(scoring.tierCounts[t])}
             accent={tierAccent(t)}
             sub="units"
-            onClick={() => openTier(`${TIER_LABEL[t]} — priority units`, t)}
+            onClick={() => openTier(t === "act_now" ? "Act Now — committed but unfinished" : `${TIER_LABEL[t]} — priority units`, t)}
             disabled={scoring.tierCounts[t] === 0}
           />
         ))}
