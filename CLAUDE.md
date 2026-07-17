@@ -116,12 +116,45 @@ CURATEDV2 + CuratedFields ─parse + mergeSources(Record UUID)→ ParsedFile ─
 ## Navigation / tabs
 
 `app/page.tsx` renders a **fixed tab** nav — **Overview · Work Stage ·
-Sales Team · Media · OCTANE · Admin** — not one-tab-per-category. (**Admin** is a
-**temporary** manual-CSV-upload tab — `components/admin/AdminUploads.tsx`, also at
-the `/admin` route — that goes away once FileMaker Pro posts a JSON payload to the
-backend; see "Data uploads (Neon)" below.) (The old per-category router in
-`lib/categoryConfig.ts` + `components/tabs/CategoryTab.tsx` + the `*Tab.tsx`
-layouts is **legacy and off the live render path**; keep but don't assume live.)
+Sales Team · Media · OCTANE · Logs** — not one-tab-per-category. (The **Admin** tab
+was removed from the nav 2026-07-17; `components/admin/AdminUploads.tsx` + the
+`/admin` route still exist but are reachable only by direct URL — see "Data uploads
+(Neon)" below.) (The old per-category router in `lib/categoryConfig.ts` +
+`components/tabs/CategoryTab.tsx` + the `*Tab.tsx` layouts is **legacy and off the
+live render path**; keep but don't assume live.)
+
+> **UI overhaul (2026-07-17) — cross-cutting, live on `mainv2`.** Full record:
+> `docs/UI_OVERHAUL_PLAN.md`. Key primitives + behaviors a fresh agent must know:
+> - **`components/ui/DataTable.tsx`** is the ONE table shell — `SortHeader` +
+>   25/page `Pager` + optional search box + a `ColDef` API (`render`, `sortValue`,
+>   `href` link cells, `copy` click-to-copy cells, `printValue`) + a **Print / PDF**
+>   button + accessible **expandable rows**. Every unit table renders through it
+>   (`UnitsDrawer`, `MediaDrawer`, the Priority-Queue ranked list, Sales
+>   `SoldUnitsDrawer` + Unsigned worklist). Don't hand-roll `<table>`s anymore.
+> - **`components/ui/Drawer.tsx`** — the one full-screen modal shell (focus trap,
+>   aria-modal, Esc-close, focus restore). The drill-down drawers compose it.
+> - **`components/units/UnitDetail.tsx`** — the canonical unit view (specs +
+>   click-through **and** copyable listing/video URLs). Opened from KPI drawers,
+>   expandable rows, and search.
+> - **Every KPI card in the app is clickable** → opens a drawer table of exactly
+>   those units (Overview, Work Stage, Media, OCTANE, Sales [Total Sold / Total
+>   Sales $ / Unsigned], the Priority-Queue tier cards, and the Overview + Work
+>   Stage act-now banners).
+> - **`components/GlobalSearch.tsx`** — sticky header combobox searching every unit
+>   (serial/name/make/model/year/price/fuel/customer/soldBy) → `UnitDetail`.
+> - **`components/ui/CopyText.tsx`** — click-to-copy (right-click is disabled in
+>   prod), used for serials/customer/soldBy/URLs.
+> - **In-app Back/Forward** (‹ ›) in the Header — a pointer-based `{tab, location}`
+>   history in `DashboardProvider` (`navHistory`/`navPointer`,
+>   `NAV_BACK`/`NAV_FORWARD`). No History API, no reload (won't trip the no-refresh
+>   deterrent). Drawers still close via ✕ / Esc.
+> - Layout widened `max-w-7xl` → **`max-w-[1600px]`** (Header/main/LocationBar/
+>   Drawer) for the fixed PRO canvas; the location bar is filled chips (visually
+>   distinct from the underline nav); per-tab IA was reordered (methodology moved
+>   off Overview, queue-first on Work Stage, gap-first Media, etc.).
+> - **Print-to-PDF** (`lib/printTable.ts`, isolated hidden-iframe `window.print()`)
+>   still needs on-device confirmation the FileMaker Web Viewer shows a "Save as
+>   PDF" dialog.
 
 - **Overview** (`components/overview/OverviewGrid.tsx`): KPI cards (work-stage +
   payment buckets) + charts + per-yard snapshot + opt-in AI Insights. Every KPI
@@ -141,7 +174,12 @@ layouts is **legacy and off the live render path**; keep but don't assume live.)
   (DENVER SALES → Denver, etc.); KPIs/leaderboard/roster/race recompute from the
   in-scope reps. Round-robin + lead sources stay company-wide (queue/source totals,
   not per-rep). `SalesTeam` takes a `locationFilter` prop and derives a scoped
-  `view` of the `SalesSummary` internally.
+  `view` of the `SalesSummary` internally. *(2026-07-17: KPI cards Total Sold /
+  Total Sales $ / Unsigned Docs drill into a `SoldUnitsDrawer`; the aggregates
+  (Avg Sale, Reps Active) aren't clickable; the **"Emails Sent" KPI was removed**
+  and the **"Unsigned Docs" KPI is hidden on the ALL + Other scopes**; the Unsigned
+  worklist was hoisted above the reference band and the AI panel moved to the
+  bottom. `SoldUnit` now carries `serial4`/`productUrl`/`youtubeUrl`.)*
 - **Media** (`components/media/MediaView.tsx`): content-coverage command center.
   Two deliberately-separate sources. (1) Per-unit **coverage** — walkaround video +
   product-page URL from `UnitRecord.specs`, via `lib/deriveMedia.ts` — drives the
@@ -322,6 +360,15 @@ post to `/api/logs/event`. Retention: keep everything, no cron. Helpers in
 `lib/logsAuth.ts`; store in `lib/logStore.ts`. Needs `DATABASE_URL` +
 `INVENTORY_ANALYSIS_SECRET`; without them the viewer 503s.
 
+**Public mode (2026-07-17):** `logsPublic()` (`lib/logsAuth.ts`) opens the viewer
+to anyone — the `/api/logs`, `/api/logs/auth`, `/api/logs/event` routes skip the
+session + allowlist checks when it returns true. `LOGS_PUBLIC=true` forces it on,
+`=false` forces it off, and **unset → follows the gate** (public whenever the
+FileMaker gate is off — it mirrors `middleware.gateEnabled()` — and auto-secures
+the moment `AUTH_GATE=on` + secret is set). So with the gate currently off, `/logs`
++ the Logs tab are public (verified live). ⚠️ Public mode exposes IPs / UAs /
+headers / access events — testing only; the go-live gate flip re-secures it.
+
 ## Web Viewer deterrents (prod-only — deterrents, not enforcement)
 
 The owner wanted the Web Viewer locked down. Shipped (deterrents only — the
@@ -339,8 +386,9 @@ are **not** reachable from page JS or by the FileMaker dev):
 - **`overscroll-behavior-y: contain`** on `html, body` (kills pull-to-refresh).
 - **Vercel Analytics** (`@vercel/analytics`).
 
-Because right-click is disabled, copy affordances (click-to-copy) and in-app
-back/forward nav are on the backlog (see `docs/SESSION_HANDOFF.md`).
+Because right-click is disabled, **click-to-copy** (`components/ui/CopyText.tsx`)
+and **in-app Back/Forward** history nav (‹ › in the Header, backed by a pointer
+over a `{tab, location}` stack in `DashboardProvider`) were shipped 2026-07-17.
 
 ## House rules (from the Design System — apply to all UI)
 
@@ -406,18 +454,20 @@ app/
   api/{infer-schema,insights,connect,summarize}/route.ts
   api/logs/{ingest,auth,route,alerts,event}/route.ts   log ingest + logs-auth check + query + alert-bubble poll + client event sink
 components/
-  DashboardProvider.tsx state machine (useReducer): idle→ready/waiting, ingestParsed (bundled + PRO), pro:payload listener, activeTab, location filter
-  Header.tsx            logo, light/dark toggle, ⚡ AI Analysis, tabs, "refining" pill
+  DashboardProvider.tsx state machine (useReducer): idle→ready/waiting, ingestParsed (bundled + PRO), pro:payload listener, activeTab, location filter, nav history (back/forward)
+  Header.tsx            logo, GlobalSearch slot, Back/Forward (‹ ›), AI Analysis (secondary), tabs, "updating numbers" pill
+  GlobalSearch.tsx      sticky header unit search (accessible combobox → UnitDetail)
   overview/             OverviewGrid + MetricCard (clickable) + UnitsDrawer (KPI drill-down)
   charts/               OverviewCharts (sales-by-payment + brand bars)
   tabs/                 WorkStageView · OctaneView · shared.ts (unitTitle); legacy CategoryTab/*Tab router
   viz/                  shared primitives: ChartPanel, StatCards, CategoryBars, ReconPipeline (service pipeline), DistributionBar, chartTheme
   sales/                SalesTeam + SalesAI (opt-in summarize)
   media/                MediaView (coverage + production pipeline) + MediaDrawer (links drill-down)
-  priority/             PriorityQueue (search + 25/page + accordion specs)
+  priority/             PriorityQueue (clickable tier KPIs + act-now banner → drawer; sortable DataTable ranked list; score breakdown + specs in the row expand)
   insights/             AiAnalysisModal (header → company-wide read) + AiAnalysisCard (per-tab, opt-in) + AiInsightsBody (shared); InsightsTab = deterministic scoring methodology
   logs/                 LogsView (typed sub-tabs, sortable, paginated, meta drill-down) + LogsAlertBadge (red bubble: FileMaker-UA + denied logins)
-  ui/                   Pills, Pager (shared 25/page pager)
+  ui/                   Pills, Pager (25/page), SortHeader, CopyText (click-to-copy), DataTable (the shared sortable/searchable/paginated table — link + copy cells, Print/PDF, expandable rows), Drawer (shared focus-trap modal shell)
+  units/                UnitDetail (canonical unit-detail view — specs + copyable serial/URLs)
 lib/                    types, parseFile, mergeSources (Record-UUID join), fromProPayload (PRO CSV→ParsedFile),
                         proBridgeScript (pre-hydration FileMaker bridge, injected in layout head),
                         authToken (HMAC-SHA256 gate + session cookie), logsAuth (LOGS_ACCOUNTS allowlist helpers),
@@ -425,7 +475,7 @@ lib/                    types, parseFile, mergeSources (Record-UUID join), fromP
                         bucketize, buckets, entities, location, octane,
                         deriveUnits/deriveSales/deriveMetrics, deriveFinancials,
                         deriveMedia/deriveMediaProduction, score, categories,
-                        categoryConfig, pivot, anthropic, *Client.ts, format, features, sampleData
+                        categoryConfig, pivot, anthropic, *Client.ts, printTable (isolated-iframe print→PDF), format, features, sampleData
 public/                CURATEDV2-TESTING.xlsx (primary inventory) + CuratedFields-TEST.xlsx (entities)
                        + new-vals.xlsx (media-production tracker), logo.png, favicon.ico
 Discount Forklift Design System/   brand system + UI kit reference (not built by next)
@@ -446,6 +496,7 @@ reuse, don't assume they're live.
 | `AUTH_GATE` | optional override: `"on"` / `"off"`. Default: on in production (if the secret is set), off in dev. Set `AUTH_GATE=on` locally to test the gate. |
 | `NEXT_PUBLIC_AUTO_LOAD_BUNDLED` | optional `"true"`/`"false"` — force the bundled-data auto-load on/off. Default: on in dev, off in production (prod waits for a PRO push). |
 | `LOGS_ACCOUNTS` | comma-separated account names allowed into `/logs` (e.g. `matt`), case-insensitive. Access is a signed link (same HMAC method as the gate) whose `account` is on this list; needs `INVENTORY_ANALYSIS_SECRET` (to verify) + `DATABASE_URL` (to read logs). Removing a name revokes access on the next request. |
+| `LOGS_PUBLIC` | optional `"true"`/`"false"`. `true` opens `/logs` + the Logs tab to **anyone** (no signed link / allowlist); `false` forces it gated. **Unset → follows the auth gate** (public whenever the gate is off, auto-secured when `AUTH_GATE=on` + secret). ⚠️ Public mode exposes IPs/UAs/headers — testing only. |
 | `DATABASE_URL` | Neon Postgres. **Now used by the logs viewer** (the `logs` table records in real time). Still dormant for the Admin CSV uploads (`/api/upload`). Without it the logs viewer + upload route 503; nothing else is affected. (`POSTGRES_URL` is accepted as an alias.) |
 
 (The `XAI_*` / `OPENAI_*` keys are no longer used — the Grok/GPT second-opinion

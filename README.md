@@ -57,20 +57,29 @@ roster's real email + phone feed each rep's contact card.
   brand charts, a per-yard snapshot, and an opt-in AI Insights read. **Every KPI
   card is clickable** — drill into a searchable, 25/page table of the exact units
   behind that number.
+- **Search, drill-downs & export** — a sticky **global search** in the header finds
+  any unit (serial / name / make / model / year / price) and opens its full detail;
+  **every KPI card drills into a table** of the exact units behind it; unit tables
+  carry a **listing-URL column**, **click-to-copy** on serials / URLs / names
+  (right-click is disabled in the Web Viewer), and a **Print / PDF** button; and
+  **in-app Back / Forward** buttons navigate the chromeless viewer.
 - **Work Stage** — the **service pipeline** (a journey bar + bottleneck call-out),
-  a readiness legend, and the priority queue. Covers the 4 main yards only.
+  a readiness legend, and the priority queue (a sortable table; click any tier KPI
+  or the act-now banner to drill into those units). Covers all yards, incl. Other.
 - **Sales Team** — a **Roster** sidebar (click a rep for their contact card), a
   Sales Race leaderboard, deal-close health, an outreach-vs-closes chart, the rep
   leaderboard, round-robin, and an unsigned-doc chase list — plus an opt-in AI read.
 - **Media** — a content-coverage command center: per-unit walkaround-video +
   product-page coverage (clickable KPI cards → a drill-down of exactly which units
   are missing media, by yard) alongside the company-wide media-production pipeline.
-- **OCTANE** — the OCTANE sub-brand on its own tab, kept out of the main fleet metrics.
+- **OCTANE** — the OCTANE sub-brand on its own tab, kept out of the main fleet
+  metrics; its cards drill into the underlying units.
 - **Global location filter** — one pill bar (Denver / Las Vegas / Phoenix / DFW +
   Other) filters Overview, Work Stage, Sales Team, Media, and OCTANE.
 - **Priority / Act-Now queue** — deterministic, fully-explainable scoring; every
-  point a unit earns is itemized. Searchable, paginated, with an accordion of each
-  unit's specs (mast, fork length, heights, tires, product & video links).
+  point a unit earns is itemized. A sortable, searchable, paginated table; expand a
+  row for its score breakdown + full specs (mast, fork length, heights, tires,
+  product & video links).
 - **AI Insights** — a Claude read of the fleet, opt-in (nothing is sent until you
   click); rule-based fallback when no key is set.
 - **Light / dark theme**, the real logo, and the Discount Forklift design language
@@ -79,7 +88,9 @@ roster's real email + phone feed each rep's contact card.
 - **Logs / observability** (`/logs`) — auth / performance / system / error events
   recorded to Neon in real time, viewable by an allowlisted account via a signed
   link (same HMAC method as the gate). Flags any FileMaker user-agent hitting the
-  public URL and surfaces signature rejections as alerts. See `CLAUDE.md → Logs`.
+  public URL and surfaces signature rejections as alerts. During testing the viewer
+  can be opened to anyone via `LOGS_PUBLIC` (or whenever the auth gate is off); it
+  re-secures automatically at go-live. See `CLAUDE.md → Logs`.
 
 ## Run locally
 
