@@ -21,7 +21,7 @@ export function LocationBar({ locations }: { locations: LocationSnapshot[] }) {
               // Deliberately a different shape from the underline nav above: a
               // filled segmented chip, so "filter WHERE" reads distinct from
               // "navigate WHAT". Same brand accent, different form.
-              "flex shrink-0 items-center gap-1.5 border px-2.5 py-1 text-[12px] uppercase tracking-wider transition-colors",
+              "flex shrink-0 items-center gap-1.5 border px-3 py-1.5 text-[13px] uppercase tracking-wide transition-colors",
               active ? "border-brand bg-brand/10 text-ink" : "border-line/60 text-ink-dim hover:border-line hover:text-ink"
             )}>
             {l.name}<span className={cn("tabular-nums", active ? "text-brand" : "text-ink-faint")}>{fmt(l.total)}</span>

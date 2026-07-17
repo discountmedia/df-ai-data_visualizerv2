@@ -42,7 +42,7 @@ export function OverviewGrid({ units, allLocations, aiInput }: { units: UnitReco
           <h1 className="mt-1 text-xl font-bold text-ink">Fleet at a glance</h1>
         </div>
 
-        <AlertBanner openWorkOnSold={m.openWorkOnSold} />
+        <AlertBanner openWorkOnSold={m.openWorkOnSold} onClick={open("Open Work on Sold", openWorkUnits)} />
 
         {/* Two labelled lenses — physical work stage, then commercial payment
             status — so the eye knows each row measures a different thing (and

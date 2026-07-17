@@ -60,7 +60,7 @@ export function Header({
                 onClick={() => onTab(t.id)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] uppercase tracking-wider transition-colors",
+                  "flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-[15px] font-medium uppercase tracking-wide transition-colors",
                   active ? "border-brand text-ink" : "border-transparent text-ink-dim hover:text-ink"
                 )}
               >

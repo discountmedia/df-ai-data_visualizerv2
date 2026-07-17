@@ -12,6 +12,7 @@ import { ChartPanel } from "../viz/ChartPanel";
 import { AXIS, GRID, ChartTip } from "../viz/chartTheme";
 import { Pager } from "../ui/Pager";
 import { DataTable, type Column } from "../ui/DataTable";
+import { Drawer } from "../ui/Drawer";
 import { SalesAI } from "./SalesAI";
 
 type SortKey = "unitsSold" | "totalSale" | "avgSale" | "emailsSent" | "unsignedDocs" | "name" | "location";
@@ -24,6 +25,7 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
+  const [drill, setDrill] = useState<{ title: string; units: SoldUnit[] } | null>(null);
 
   // Snap to page 1 whenever the sort or search changes underfoot.
   useEffect(() => setPage(0), [sortKey, asc, q]);
@@ -99,6 +101,7 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
   const shown = sorted.slice(start, start + PAGE);
 
   return (
+    <>
     <div className="fade-up lg:grid lg:grid-cols-[252px_minmax(0,1fr)] lg:gap-5">
       {/* Main column (first in DOM → on top on mobile, right rail on desktop) */}
       <div className="min-w-0 space-y-5 lg:col-start-2">
@@ -112,11 +115,11 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
           </span>
         </div>
 
-        {/* KPI cards — grouped: sales story · team/activity · the one warning
-            (Total Sold is a win, so neutral — red stays reserved for act-now). */}
+        {/* KPI cards — grouped: sales story · team/activity · the one warning.
+            Cards backed by a unit list drill into a table; pure aggregates don't. */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Card label="Total Sold" value={fmt(view.totalSold)} accent="text-ink" sub="Attributed units" />
-          <Card label="Total Sales $" value={fmtMoney(totalSaleVal || null)} accent="text-pif" sub="Attributed" />
+          <Card label="Total Sold" value={fmt(view.totalSold)} accent="text-ink" sub="Attributed units" onClick={allSold.length ? () => setDrill({ title: "Sold units", units: allSold }) : undefined} />
+          <Card label="Total Sales $" value={fmtMoney(totalSaleVal || null)} accent="text-pif" sub="Attributed" onClick={allSold.length ? () => setDrill({ title: "Sold units — by value", units: allSold }) : undefined} />
           <Card label="Avg Sale" value={fmtMoney(avgSale)} accent="text-ready" sub="Per unit" />
           <Card label="Reps Active" value={fmt(activeReps)} accent="text-ink" sub={`${view.reps.length} on team`} />
           <Card
@@ -125,7 +128,7 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
             accent="text-rent"
             sub={view.emailsAvailable ? "Outreach (proxy)" : "Not in file"}
           />
-          <Card label="Unsigned Docs" value={fmt(view.unsignedCount)} accent="text-working" sub="Real open deals" />
+          <Card label="Unsigned Docs" value={fmt(view.unsignedCount)} accent="text-working" sub="Real open deals" onClick={view.unsignedWorklist.length ? () => setDrill({ title: "Unsigned PandaDocs — Chase These", units: view.unsignedWorklist }) : undefined} />
         </div>
 
         {/* Engaging visuals */}
@@ -233,7 +236,9 @@ export function SalesTeam({ summary, locationFilter = "ALL" }: { summary: SalesS
 
       {/* Roster rail (left on desktop) */}
       <RosterSidebar reps={view.reps} selected={selected} onSelect={setSelected} />
-    </div>
+      </div>
+      {drill && <SoldUnitsDrawer title={drill.title} units={drill.units} onClose={() => setDrill(null)} />}
+    </>
   );
 }
 
@@ -445,13 +450,58 @@ function DealHealth({ units }: { units: SoldUnit[] }) {
   );
 }
 
-function Card({ label, value, accent, sub }: { label: string; value: string; accent: string; sub: string }) {
-  return (
-    <div className="card card-hover p-4">
-      <p className="eyebrow">{label}</p>
+function Card({ label, value, accent, sub, onClick }: { label: string; value: string; accent: string; sub: string; onClick?: () => void }) {
+  const inner = (
+    <>
+      <div className="flex items-center justify-between">
+        <p className="eyebrow">{label}</p>
+        {onClick && <span aria-hidden="true" className="text-ink-dim transition-colors group-hover:text-brand">→</span>}
+      </div>
       <p className={cn("mt-2 font-display text-4xl leading-none tabular-nums", accent)}>{value}</p>
       <p className="mt-2 text-[13px] text-ink-faint">{sub}</p>
-    </div>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button onClick={onClick} title={`View ${label}`} className="card card-hover group w-full p-4 text-left transition-colors hover:border-brand/60 focus:border-brand focus-visible:outline-none">
+        {inner}
+      </button>
+    );
+  }
+  return <div className="card p-4">{inner}</div>;
+}
+
+/** Drill-down table for a set of sold units (behind the Sales KPI cards). */
+function SoldUnitsDrawer({ title, units, onClose }: { title: string; units: SoldUnit[]; onClose: () => void }) {
+  const keyOf = useMemo(() => {
+    const m = new Map<SoldUnit, string>();
+    units.forEach((u, i) => m.set(u, String(i)));
+    return (u: SoldUnit) => m.get(u) ?? "";
+  }, [units]);
+  const columns = useMemo<Column<SoldUnit>[]>(() => [
+    { key: "unit", header: "Unit", sortValue: (u) => soldTitle(u), render: (u) => <span className="text-ink">{soldTitle(u)}</span>, printValue: (u) => soldTitle(u) },
+    { key: "rep", header: "Rep", sortValue: (u) => u.rep, copy: (u) => u.rep },
+    { key: "customer", header: "Customer", sortValue: (u) => u.customer ?? "", copy: (u) => u.customer },
+    { key: "sale", header: "Sale", sortValue: (u) => u.saleTypeRaw ?? "", render: (u) => <SalePill raw={u.saleTypeRaw} />, printValue: (u) => u.saleTypeRaw ?? "" },
+    { key: "signed", header: "Signed", sortValue: (u) => (u.signed ? 0 : 1), render: (u) => <span className={cn("text-center", u.signed ? "text-ready" : "text-working")} aria-hidden="true">{u.signed ? "✓" : "○"}</span>, printValue: (u) => (u.signed ? "signed" : "unsigned") },
+    { key: "listing", header: "Listing", href: (u) => (isUrl(u.productUrl) ? u.productUrl : null), linkLabel: () => "Listing ↗", printValue: (u) => u.productUrl ?? "" },
+    { key: "price", header: "Price", numeric: true, sortValue: (u) => u.price ?? -Infinity, render: (u) => <span className="tabular-nums text-pif">{fmtMoney(u.price)}</span>, printValue: (u) => (u.price != null ? String(u.price) : "") },
+  ], []);
+  return (
+    <Drawer title={title} subtitle={`${units.length.toLocaleString()} ${units.length === 1 ? "unit" : "units"}`} onClose={onClose}>
+      <DataTable
+        fill
+        columns={columns}
+        rows={units}
+        getRowKey={keyOf}
+        initialSort={{ key: "price", asc: false }}
+        searchText={(u) => [u.serial4, u.make, u.model, u.type, u.rep, u.customer, u.saleTypeRaw].filter(Boolean).join(" ")}
+        searchPlaceholder="Search unit, rep, customer…"
+        minWidth={860}
+        printTitle={title}
+        printSubtitle="Discount Forklift"
+      />
+    </Drawer>
   );
 }
 
