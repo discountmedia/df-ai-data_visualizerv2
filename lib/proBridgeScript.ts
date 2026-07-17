@@ -88,3 +88,26 @@ export const PRO_BRIDGE_SCRIPT = `(function () {
   window.fileMakerReady = fileMakerReady;
   fileMakerReady();
 })();`;
+
+/**
+ * Minimal ready-ping — installs ONLY window.fileMakerReady() and calls it once.
+ * Injected into the 401 "access denied" page (middleware) to break FileMaker's
+ * infinite refresh loop: a blocked page must still send the ready ping so
+ * FileMaker stops re-navigating, but it must NOT ship the full bridge (no
+ * receive/send/buffer — the app isn't loaded). Same contract as the bridge's
+ * fileMakerReady (callback script + option kept in sync). No-op in a normal
+ * browser (no window.FileMaker).
+ */
+export const PRO_READY_PING_SCRIPT = `(function () {
+  function ready() {
+    var fm = window.FileMaker;
+    if (fm && typeof fm.PerformScriptWithOption === "function") {
+      fm.PerformScriptWithOption("Inventory Analysis Return", JSON.stringify({
+        requestId: "health_check", responseAction: "ready",
+        responseMessage: "The JavaScript engine is loaded and ready."
+      }), "5");
+    }
+  }
+  window.fileMakerReady = ready;
+  ready();
+})();`;
