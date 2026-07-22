@@ -161,7 +161,7 @@ export function DataTable<T>({
       )}
 
       <div className={cn("card flex flex-col overflow-hidden", fill && "min-h-0 flex-1")}>
-        <div className={cn(fill ? "min-h-0 flex-1 overflow-auto" : "overflow-x-auto")}>
+        <div className={cn(fill ? "min-h-0 flex-1 overflow-auto overscroll-contain" : "overflow-x-auto")}>
           <table className="w-full text-left text-[13px]" style={{ minWidth }}>
             <thead className={cn("bg-panel", fill && "sticky top-0 z-10")}>
               <tr className="border-b border-line text-ink-dim">

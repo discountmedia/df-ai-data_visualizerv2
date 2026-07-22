@@ -22,6 +22,15 @@ export function Drawer({ title, subtitle, onClose, children }: {
     return () => triggerRef.current?.focus?.();
   }, []);
 
+  // Lock the page behind the drawer so the wheel scrolls the table, not the
+  // page. Without this, scroll-chaining (pointer over the header/pager/backdrop,
+  // or the table already at a scroll boundary) leaks the scroll to <body>.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   useEffect(() => {
     const dialog = dialogRef.current;
     const onKey = (e: KeyboardEvent) => {
@@ -62,7 +71,7 @@ export function Drawer({ title, subtitle, onClose, children }: {
             ✕ Close
           </button>
         </div>
-        <div className="min-h-0 flex-1 pt-3">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col pt-3">{children}</div>
       </div>
     </div>
   );
